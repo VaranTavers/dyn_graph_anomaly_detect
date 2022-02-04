@@ -95,6 +95,21 @@ html"""
 """
 
 
+# ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
+md"""
+## Helper functions
+"""
+
+# ╔═╡ ca6fe67f-4f76-4cd2-a310-97211d61cef9
+function sq(x)
+	x * x
+end
+
+# ╔═╡ 39bdd460-58de-4bcc-8237-12586b74a11b
+function logistic(x)
+	1 / (1 + exp(-x))
+end
+
 # ╔═╡ fefdd2c0-02a7-4db3-b868-f40c98373e1f
 # Kronecker delta function
 function δ(i, j)
@@ -104,13 +119,16 @@ function δ(i, j)
 	0
 end
 
+# ╔═╡ f60bc671-65a7-4335-8388-22535751d23b
+sample(weights) = findfirst(cumsum(weights) .> rand())
+
 # ╔═╡ c88acc56-32a0-4209-aa92-eec60e1bbbe7
 md"""
 $A_{ij} - \frac{k_i * k_j}{2m}$
 """
 
 # ╔═╡ bf2fe679-e748-4117-9425-c4285f0d729e
-function calculate_inner(graph, i, j)
+function calculate_modularity_inner(graph, i, j)
 	m = ne(graph)
 	A_ij = has_edge(graph, i, j) ? 1 : 0
 	k_i = length(all_neighbors(graph, i))
@@ -119,38 +137,65 @@ function calculate_inner(graph, i, j)
 	A_ij - (k_i * k_j) / 2m
 end
 
+# ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
+md"""
+## Benchmark functinos
+"""
+
 # ╔═╡ 74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
 function calculate_modularity(graph, c)
 	m = ne(graph)
 
 	s = sum(Iterators.flatten([
-		[ calculate_inner(graph, i, j) * δ(c[i], c[j])
+		[ calculate_modularity_inner(graph, i, j) * δ(c[i], c[j])
 		for j in 1:nv(graph)] for i in 1:nv(graph)]))
 
 	s / (2 * m)
 end
 
-# ╔═╡ 4ea094e2-d266-4b92-9361-49511d8b7b0b
-begin
-	# Building the graph that is presented in the paper (Fig. 1)
-	g = loadgraph("changhoangho2013.lgz", SWGFormat())
+# ╔═╡ 0d55705f-b656-4479-a7e9-5cbfef9063b3
+function community_entropy_inner(c, i)
+	n = length(c)
+	nx_i = count(x -> x == i, c)
+
+	nx_i * log(nx_i / n) / n
 end
 
-# ╔═╡ 9cc44d49-972a-4590-8301-1f7c443ee731
-begin
-	# Calculating Q for the afforementioned graph. The result is 0.102, which means there are more edges in communities than what we'd expect in a random graph.
-	c = [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3]
-	calculate_modularity(g, c)
+# ╔═╡ af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
+function community_entropy(c)
+	- sum([community_entropy_inner(c, i) for i in 1:maximum(c)])
 end
 
-# ╔═╡ ca6fe67f-4f76-4cd2-a310-97211d61cef9
-function sq(x)
-	x * x
+# ╔═╡ 31115dfc-2898-431e-962a-588e854a05d8
+function mutual_information_inner(c1, c2, i, j)
+	n = length(c1)
+	z = zip(c1, c2)
+	nxy_ij = count(x -> x == (i, j), z)
+	nx_i = count(x -> x == i, c1)
+	ny_j = count(x -> x == j, c2)
+	@show nxy_ij
+
+	if nxy_ij == 0
+		return 0
+	end
+	
+	nxy_ij * log((nxy_ij / n) / ((nx_i / n) * (ny_j / n))) / n
+end
+
+# ╔═╡ c833cd39-58a3-4a8c-8281-d8ec862a0314
+function mutual_information(c1, c2)
+	@show [[mutual_information_inner(c1, c2, i, j) for j in 1:maximum(c2)] for i in 1:maximum(c1)]
+	sum([sum([mutual_information_inner(c1, c2, i, j) for j in 1:maximum(c2)]) for i in 1:maximum(c1)])
+end
+
+# ╔═╡ b6b71f29-5929-4b1d-abb4-e182deb5c8b3
+function normalized_mutual_information(c1, c2)
+	2 * mutual_information(c1, c2) / (community_entropy(c1) + community_entropy(c2))
 end
 
 # ╔═╡ 8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
 md"""
-Global settings for the Ant colony optimalization algorithm. 
+## Global settings for the Ant colony optimalization algorithm. 
 """
 
 # ╔═╡ 8b130d9c-5712-45cb-8486-d07a1a98a894
@@ -162,11 +207,6 @@ begin
 	ϵ = 0.005
 	max_number_of_iterations = 100
 end
-
-# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
-md"""
-$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
-"""
 
 # ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
 function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
@@ -184,10 +224,10 @@ function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
 	numerator / (n * σ_i * σ_j)
 end
 
-# ╔═╡ 39bdd460-58de-4bcc-8237-12586b74a11b
-function logistic(x)
-	1 / (1 + exp(-x))
-end
+# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
+md"""
+$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
+"""
 
 # ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
 # Calculates the probabilities of choosing edges to add to the solution.
@@ -201,9 +241,6 @@ function calculate_probabilities(graph, η, τ, i)
 
 	p
 end
-
-# ╔═╡ f60bc671-65a7-4335-8388-22535751d23b
-sample(weights) = findfirst(cumsum(weights) .> rand())
 
 # ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
 # Constructs a new solution
@@ -255,7 +292,6 @@ function choose_iteration_best(graph, η, τ, iterations)
 	n = nv(graph)
 	
 	points = [calculate_modularity(graph, compute_solution(n, η, τ, x)) for x in iterations]
-	@show points
 	index = argmax(points)
 
 	(iterations[index], points[index])
@@ -273,7 +309,6 @@ function ACO(graph)
 	
 	# While termination condition not met
 	for i in 1:max_number_of_iterations
-		@show i
 		S = []
 		for j in 1:number_of_ants
 			# Construct new solution s according to Eq. 2
@@ -286,8 +321,6 @@ function ACO(graph)
 			sgb_val = sib_val
 			sgb = sib
 		end
-		@show sgb
-		@show calculate_modularity(graph, sgb)
 		# Compute pheromone trail limits
 		τ_max = calculate_modularity(graph, compute_solution(n, η, τ, sgb)) / (1 - ρ)
 		τ_min = ϵ * τ_max
@@ -306,7 +339,11 @@ function ACO(graph)
 end
 
 # ╔═╡ 39d3be8a-402e-4151-957b-a1832cca6ded
-ACO(g)
+begin
+	# Building the graph that is presented in the paper (Fig. 1)
+	g = loadgraph("changhoangho2013.lgz", SWGFormat())
+	ACO(g)
+end
 
 # ╔═╡ a55bd0fb-4983-44f1-8140-699430a2cc1f
 gz = loadgraph("zachary.lgz", SWGFormat())
@@ -549,20 +586,25 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╔═╡ Cell order:
 # ╟─57912b1c-83ae-11ec-2a63-57bf99a1eb84
 # ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
+# ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
+# ╠═ca6fe67f-4f76-4cd2-a310-97211d61cef9
+# ╠═39bdd460-58de-4bcc-8237-12586b74a11b
 # ╠═fefdd2c0-02a7-4db3-b868-f40c98373e1f
+# ╠═f60bc671-65a7-4335-8388-22535751d23b
 # ╟─c88acc56-32a0-4209-aa92-eec60e1bbbe7
 # ╠═bf2fe679-e748-4117-9425-c4285f0d729e
+# ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╠═74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-# ╠═4ea094e2-d266-4b92-9361-49511d8b7b0b
-# ╠═9cc44d49-972a-4590-8301-1f7c443ee731
-# ╠═ca6fe67f-4f76-4cd2-a310-97211d61cef9
+# ╠═0d55705f-b656-4479-a7e9-5cbfef9063b3
+# ╠═af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
+# ╠═31115dfc-2898-431e-962a-588e854a05d8
+# ╠═c833cd39-58a3-4a8c-8281-d8ec862a0314
+# ╠═b6b71f29-5929-4b1d-abb4-e182deb5c8b3
 # ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
 # ╠═8b130d9c-5712-45cb-8486-d07a1a98a894
-# ╟─e66b3fe1-7979-4811-a349-4b027e112310
 # ╠═0bbaaf25-4633-4a82-859e-db81068d680a
-# ╠═39bdd460-58de-4bcc-8237-12586b74a11b
+# ╟─e66b3fe1-7979-4811-a349-4b027e112310
 # ╠═adaaeb50-f117-45ff-934b-890be5e972fe
-# ╠═f60bc671-65a7-4335-8388-22535751d23b
 # ╠═467549ca-519a-4a84-98e7-9e78d93342a2
 # ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
