@@ -125,39 +125,15 @@ function calculate_modularity(graph, c)
 
 	s = sum(Iterators.flatten([
 		[ calculate_inner(graph, i, j) * δ(c[i], c[j])
-		for j in i:nv(graph)] for i in 1:nv(graph)]))
+		for j in 1:nv(graph)] for i in 1:nv(graph)]))
 
-	1 / (2 * m) * s
+	s / (2 * m)
 end
 
 # ╔═╡ 4ea094e2-d266-4b92-9361-49511d8b7b0b
 begin
 	# Building the graph that is presented in the paper (Fig. 1)
-	g = SimpleWeightedGraph(12)
-	
-	add_edge!(g, 1, 2, 1)
-	add_edge!(g, 1, 3, 1)
-	add_edge!(g, 1, 4, 1)
-	add_edge!(g, 2, 3, 1)
-	add_edge!(g, 2, 4, 1)
-	add_edge!(g, 3, 4, 1)
-	add_edge!(g, 3, 5, 1)
-	add_edge!(g, 5, 6, 1)
-	add_edge!(g, 5, 7, 1)
-	add_edge!(g, 5, 8, 1)
-	add_edge!(g, 5, 9, 1)
-	add_edge!(g, 6, 7, 1)
-	add_edge!(g, 6, 8, 1)
-	add_edge!(g, 6, 9, 1)
-	add_edge!(g, 7, 8, 1)
-	add_edge!(g, 7, 9, 1)
-	add_edge!(g, 8, 9, 1)
-	add_edge!(g, 7, 10, 1)
-	add_edge!(g, 10, 11, 1)
-	add_edge!(g, 10, 12, 1)
-	add_edge!(g, 11, 12, 1)
-
-	g
+	g = loadgraph("changhoangho2013.lgz", SWGFormat())
 end
 
 # ╔═╡ 9cc44d49-972a-4590-8301-1f7c443ee731
@@ -217,7 +193,6 @@ end
 # Calculates the probabilities of choosing edges to add to the solution.
 function calculate_probabilities(graph, η, τ, i)
 	n = nv(graph)
-
 	p = [(graph.weights[i,j] > 0 ? τ[i, j]^α * η[i, j]^β : 0) for j in 1:n]
 	
 	s_p = sum(p)
@@ -248,7 +223,6 @@ end
 # Built for bidirectional edges
 # Transforms the edge representation from generate_s to a community vector.
 function compute_solution(n, η, τ, edges)
-	@show edges
 	tmp_g = SimpleWeightedGraph(n)
 	for (a, b) in edges
 		add_edge!(tmp_g, a, b)
@@ -279,7 +253,9 @@ end
 # ╔═╡ aa8314fd-ab17-4e23-9e83-dc79a6f69209
 function choose_iteration_best(graph, η, τ, iterations)
 	n = nv(graph)
+	
 	points = [calculate_modularity(graph, compute_solution(n, η, τ, x)) for x in iterations]
+	@show points
 	index = argmax(points)
 
 	(iterations[index], points[index])
@@ -297,21 +273,23 @@ function ACO(graph)
 	
 	# While termination condition not met
 	for i in 1:max_number_of_iterations
+		@show i
 		S = []
 		for j in 1:number_of_ants
 			# Construct new solution s according to Eq. 2
 			append!(S, [generate_s(graph, η, τ)])
 		end
-		
+
 		# Update iteration best
 		(sib, sib_val) = choose_iteration_best(graph, η, τ, S)
 		if sib_val > sgb_val
 			sgb_val = sib_val
 			sgb = sib
 		end
-		
+		@show sgb
+		@show calculate_modularity(graph, sgb)
 		# Compute pheromone trail limits
-		τ_max = calculate_modularity(graph, sgb) / (1 - ρ)
+		τ_max = calculate_modularity(graph, compute_solution(n, η, τ, sgb)) / (1 - ρ)
 		τ_min = ϵ * τ_max
 
 		# Update pheromone trails
@@ -329,6 +307,15 @@ end
 
 # ╔═╡ 39d3be8a-402e-4151-957b-a1832cca6ded
 ACO(g)
+
+# ╔═╡ a55bd0fb-4983-44f1-8140-699430a2cc1f
+gz = loadgraph("zachary.lgz", SWGFormat())
+
+# ╔═╡ 56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
+cz = ACO(gz)
+
+# ╔═╡ f91a1596-e030-4eab-81f9-1b3a5c851440
+m = calculate_modularity(gz, cz)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -581,5 +568,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
 # ╠═39d3be8a-402e-4151-957b-a1832cca6ded
+# ╠═a55bd0fb-4983-44f1-8140-699430a2cc1f
+# ╠═56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
+# ╠═f91a1596-e030-4eab-81f9-1b3a5c851440
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
