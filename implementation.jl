@@ -206,6 +206,7 @@ begin
 	ρ = 0.8
 	ϵ = 0.005
 	max_number_of_iterations = 100
+	starting_pheromone_ammount = 10
 end
 
 # ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
@@ -303,7 +304,7 @@ function ACO(graph)
 	n = nv(graph)
 	
 	η = [logistic(pearson_corelation(graph, i, j)) * (1 - δ(i, j)) for i in 1:n, j in 1:n]
-	τ = ones(n, n) # TODO set to relatively high
+	τ = ones(n, n) .* starting_pheromone_ammount # TODO set to relatively high
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
 	
@@ -322,9 +323,10 @@ function ACO(graph)
 			sgb = sib
 		end
 		# Compute pheromone trail limits
+		
 		τ_max = calculate_modularity(graph, compute_solution(n, η, τ, sgb)) / (1 - ρ)
 		τ_min = ϵ * τ_max
-
+		@show τ_max
 		# Update pheromone trails
 		τ .*= ρ
 		for (a, b) in sib
@@ -345,6 +347,11 @@ begin
 	ACO(g)
 end
 
+# ╔═╡ fcebc348-7419-4055-aea2-58be96e065c8
+md"""
+# Testing Zachary's karate club
+"""
+
 # ╔═╡ a55bd0fb-4983-44f1-8140-699430a2cc1f
 gz = loadgraph("zachary.lgz", SWGFormat())
 
@@ -352,7 +359,66 @@ gz = loadgraph("zachary.lgz", SWGFormat())
 cz = ACO(gz)
 
 # ╔═╡ f91a1596-e030-4eab-81f9-1b3a5c851440
-m = calculate_modularity(gz, cz)
+mz = calculate_modularity(gz, cz)
+
+# ╔═╡ 2be67f9f-df4e-4be7-a05d-566e451af955
+md"""
+The modularity is close to the one in the Chang Honghao Paper (0,420)
+
+# Testing Bottlenose Dolphin graph
+"""
+
+# ╔═╡ 3a9f3626-2bac-447d-9255-6be61939f748
+gd = loadgraph("dolphins.lgz", SWGFormat())
+
+# ╔═╡ 22f24ab8-bb49-4593-a759-57d7f247a3ec
+cd = ACO(gd)
+
+# ╔═╡ 1db6765a-1895-4d04-9883-fa69ce5dfd12
+m_d = calculate_modularity(gd, cd)
+
+# ╔═╡ 0e05385b-3070-4d7d-807a-3aebd6d54c9a
+md"""
+This averages around 0.493 which is much lower than the one in the paper (0.529)
+
+Runs in around 10 s
+ 
+ # Testing American College Football
+"""
+
+# ╔═╡ bd8edef2-2b8d-41b9-8fac-3aebeefd1384
+gf = loadgraph("football.lgz", SWGFormat())
+
+# ╔═╡ 4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
+cf = ACO(gf)
+
+# ╔═╡ 38b3a27e-c999-4562-81e6-39d1ea5426fe
+mf = calculate_modularity(gf, cf)
+
+# ╔═╡ 3d75856c-926c-46ea-96bc-27221c4d9465
+md"""
+This averages around 0.528, which is also much lower than the one in the paper (0.605)
+
+Runs in around 56s
+
+# Testing Books about US politics
+"""
+
+# ╔═╡ 2e5a0d5f-0162-4bcb-943e-d550cf898ecf
+gb = loadgraph("books.lgz", SWGFormat())
+
+# ╔═╡ b10865d6-b996-443c-8fcb-a3534ccd970c
+cb = ACO(gb)
+
+# ╔═╡ 84eef671-a5c7-44fc-83d1-a71ab6e195b0
+mb = calculate_modularity(gb, cb)
+
+# ╔═╡ 800efd73-6172-4fdb-bfe0-f2b68aa4f953
+md"""
+This averages around 0.487, which is also much lower than the one in the paper (0,527)
+
+Runs in around 42s
+"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -610,8 +676,22 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
 # ╠═39d3be8a-402e-4151-957b-a1832cca6ded
+# ╟─fcebc348-7419-4055-aea2-58be96e065c8
 # ╠═a55bd0fb-4983-44f1-8140-699430a2cc1f
 # ╠═56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
 # ╠═f91a1596-e030-4eab-81f9-1b3a5c851440
+# ╟─2be67f9f-df4e-4be7-a05d-566e451af955
+# ╠═3a9f3626-2bac-447d-9255-6be61939f748
+# ╠═22f24ab8-bb49-4593-a759-57d7f247a3ec
+# ╠═1db6765a-1895-4d04-9883-fa69ce5dfd12
+# ╟─0e05385b-3070-4d7d-807a-3aebd6d54c9a
+# ╠═bd8edef2-2b8d-41b9-8fac-3aebeefd1384
+# ╠═4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
+# ╠═38b3a27e-c999-4562-81e6-39d1ea5426fe
+# ╟─3d75856c-926c-46ea-96bc-27221c4d9465
+# ╠═2e5a0d5f-0162-4bcb-943e-d550cf898ecf
+# ╠═b10865d6-b996-443c-8fcb-a3534ccd970c
+# ╠═84eef671-a5c7-44fc-83d1-a71ab6e195b0
+# ╟─800efd73-6172-4fdb-bfe0-f2b68aa4f953
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
