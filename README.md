@@ -19,6 +19,8 @@ julia> using Pluto
 julia> Pluto.run()
 ```
 
-This opens a new tab in the browser, in which you can open the "implementation.jl" file.
+This opens a new tab in the browser, in which you can open the files and run them.
+
+To have the graph files ready you should run the 'graph_creation.jl' file first.
 
 The notebook will run automatically upon opening, and will refresh any affected cells upon editing, and rerunning a cell.
