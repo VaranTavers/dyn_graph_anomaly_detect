@@ -210,6 +210,11 @@ md"""
 ## Global settings for the Ant colony optimalization algorithm. 
 """
 
+# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
+md"""
+$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
+"""
+
 # ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
 function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
 	n = nv(graph)
@@ -225,11 +230,6 @@ function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
 
 	numerator / (n * σ_i * σ_j)
 end
-
-# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
-md"""
-$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
-"""
 
 # ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
 # Calculates the probabilities of choosing edges to add to the solution.
@@ -308,6 +308,8 @@ function ACO(graph, vars::ACOSettings)
 	τ = ones(n, n) .* vars.starting_pheromone_ammount # TODO set to relatively high
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
+	τ_max = vars.starting_pheromone_ammount
+	τ_min = 0
 	
 	# While termination condition not met
 	for i in 1:vars.max_number_of_iterations
@@ -322,16 +324,20 @@ function ACO(graph, vars::ACOSettings)
 		if sib_val > sgb_val
 			sgb_val = sib_val
 			sgb = sib
+			
+			# Compute pheromone trail limits
+			τ_max = sgb_val / (1 - vars.ρ)
+			τ_min = vars.ϵ * τ_max
 		end
-		# Compute pheromone trail limits
-		
-		τ_max = calculate_modularity(graph, compute_solution(n, η, τ, sgb)) / (1 - vars.ρ)
-		τ_min = vars.ϵ * τ_max
 		# Update pheromone trails
 		τ .*= vars.ρ
+		blist = []
 		for (a, b) in sib
-			τ[a, b] += sib_val
-			τ[b, a] += sib_val
+			if !((a, b)  in blist) && !((b, a)  in blist)
+				τ[a, b] += sib_val
+				τ[b, a] += sib_val
+				append!(blist, (a, b))
+			end
 		end
 		τ = min.(τ, τ_max)
 		τ = max.(τ, τ_min)
@@ -339,6 +345,29 @@ function ACO(graph, vars::ACOSettings)
 	end
 	compute_solution(n, η, τ,sgb)
 end
+
+# ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
+begin
+	g = loadgraph("changhonghao2013.lgz", SWGFormat())
+	
+	vars = ACOSettings(
+			1, # α
+			2, # β
+			30, # number_of_ants
+			0.8, # ρ
+			0.005, # ϵ
+			100, # max_number_of_iterations
+			3 # starting_pheromone_ammount
+		)
+	c = ACO(g, vars)
+
+	@show c
+	calculate_modularity(g, c)
+	
+end
+
+# ╔═╡ df8eb6c1-ff01-47e4-8e0f-d04003531db7
+logistic(0)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -588,12 +617,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═c833cd39-58a3-4a8c-8281-d8ec862a0314
 # ╠═b6b71f29-5929-4b1d-abb4-e182deb5c8b3
 # ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-# ╠═0bbaaf25-4633-4a82-859e-db81068d680a
 # ╟─e66b3fe1-7979-4811-a349-4b027e112310
+# ╠═0bbaaf25-4633-4a82-859e-db81068d680a
 # ╠═adaaeb50-f117-45ff-934b-890be5e972fe
 # ╠═467549ca-519a-4a84-98e7-9e78d93342a2
 # ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
+# ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
+# ╠═df8eb6c1-ff01-47e4-8e0f-d04003531db7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
