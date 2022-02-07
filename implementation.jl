@@ -95,6 +95,17 @@ html"""
 """
 
 
+# ╔═╡ c6cfd2c4-fa36-49b8-b054-5d198610c31d
+struct ACOSettings
+	α
+	β
+	number_of_ants
+	ρ
+	ϵ
+	max_number_of_iterations
+	starting_pheromone_ammount
+end
+
 # ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
 md"""
 ## Helper functions
@@ -122,6 +133,11 @@ end
 # ╔═╡ f60bc671-65a7-4335-8388-22535751d23b
 sample(weights) = findfirst(cumsum(weights) .> rand())
 
+# ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
+md"""
+## Benchmark functinos
+"""
+
 # ╔═╡ c88acc56-32a0-4209-aa92-eec60e1bbbe7
 md"""
 $A_{ij} - \frac{k_i * k_j}{2m}$
@@ -137,18 +153,14 @@ function calculate_modularity_inner(graph, i, j)
 	A_ij - (k_i * k_j) / 2m
 end
 
-# ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
-md"""
-## Benchmark functinos
-"""
-
 # ╔═╡ 74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
 function calculate_modularity(graph, c)
 	m = ne(graph)
+	n = nv(graph)
 
 	s = sum(Iterators.flatten([
 		[ calculate_modularity_inner(graph, i, j) * δ(c[i], c[j])
-		for j in 1:nv(graph)] for i in 1:nv(graph)]))
+		for j in 1:n] for i in 1:n]))
 
 	s / (2 * m)
 end
@@ -198,17 +210,6 @@ md"""
 ## Global settings for the Ant colony optimalization algorithm. 
 """
 
-# ╔═╡ 8b130d9c-5712-45cb-8486-d07a1a98a894
-begin
-	α = 1
-	β = 2
-	number_of_ants = 30
-	ρ = 0.8
-	ϵ = 0.005
-	max_number_of_iterations = 100
-	starting_pheromone_ammount = 10
-end
-
 # ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
 function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
 	n = nv(graph)
@@ -232,9 +233,9 @@ $C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\si
 
 # ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
 # Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(graph, η, τ, i)
+function calculate_probabilities(graph, η, τ, i, vars::ACOSettings)
 	n = nv(graph)
-	p = [(graph.weights[i,j] > 0 ? τ[i, j]^α * η[i, j]^β : 0) for j in 1:n]
+	p = [(graph.weights[i,j] > 0 ? τ[i, j]^vars.α * η[i, j]^vars.β : 0) for j in 1:n]
 	
 	s_p = sum(p)
 
@@ -245,12 +246,12 @@ end
 
 # ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
 # Constructs a new solution
-function generate_s(graph, η, τ)
+function generate_s(graph, η, τ, vars::ACOSettings)
 	n = nv(graph)
 	s = [(0, 0) for i in 1:n]
 
 	for i in 1:n
-		res = sample(calculate_probabilities(graph, η, τ, i))
+		res = sample(calculate_probabilities(graph, η, τ, i, vars))
 		s[i] = (i, res)
 	end
 
@@ -299,21 +300,21 @@ function choose_iteration_best(graph, η, τ, iterations)
 end
 
 # ╔═╡ 8167196c-4a45-45f0-b55b-26b69f27904b
-function ACO(graph)
+function ACO(graph, vars::ACOSettings)
 	#Set parameters and initialize pheromone traits.
 	n = nv(graph)
 	
 	η = [logistic(pearson_corelation(graph, i, j)) * (1 - δ(i, j)) for i in 1:n, j in 1:n]
-	τ = ones(n, n) .* starting_pheromone_ammount # TODO set to relatively high
+	τ = ones(n, n) .* vars.starting_pheromone_ammount # TODO set to relatively high
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
 	
 	# While termination condition not met
-	for i in 1:max_number_of_iterations
+	for i in 1:vars.max_number_of_iterations
 		S = []
-		for j in 1:number_of_ants
+		for j in 1:vars.number_of_ants
 			# Construct new solution s according to Eq. 2
-			append!(S, [generate_s(graph, η, τ)])
+			append!(S, [generate_s(graph, η, τ, vars)])
 		end
 
 		# Update iteration best
@@ -324,11 +325,10 @@ function ACO(graph)
 		end
 		# Compute pheromone trail limits
 		
-		τ_max = calculate_modularity(graph, compute_solution(n, η, τ, sgb)) / (1 - ρ)
-		τ_min = ϵ * τ_max
-		@show τ_max
+		τ_max = calculate_modularity(graph, compute_solution(n, η, τ, sgb)) / (1 - vars.ρ)
+		τ_min = vars.ϵ * τ_max
 		# Update pheromone trails
-		τ .*= ρ
+		τ .*= vars.ρ
 		for (a, b) in sib
 			τ[a, b] += sib_val
 			τ[b, a] += sib_val
@@ -339,86 +339,6 @@ function ACO(graph)
 	end
 	compute_solution(n, η, τ,sgb)
 end
-
-# ╔═╡ 39d3be8a-402e-4151-957b-a1832cca6ded
-begin
-	# Building the graph that is presented in the paper (Fig. 1)
-	g = loadgraph("changhoangho2013.lgz", SWGFormat())
-	ACO(g)
-end
-
-# ╔═╡ fcebc348-7419-4055-aea2-58be96e065c8
-md"""
-# Testing Zachary's karate club
-"""
-
-# ╔═╡ a55bd0fb-4983-44f1-8140-699430a2cc1f
-gz = loadgraph("zachary.lgz", SWGFormat())
-
-# ╔═╡ 56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
-cz = ACO(gz)
-
-# ╔═╡ f91a1596-e030-4eab-81f9-1b3a5c851440
-mz = calculate_modularity(gz, cz)
-
-# ╔═╡ 2be67f9f-df4e-4be7-a05d-566e451af955
-md"""
-The modularity is close to the one in the Chang Honghao Paper (0,420)
-
-# Testing Bottlenose Dolphin graph
-"""
-
-# ╔═╡ 3a9f3626-2bac-447d-9255-6be61939f748
-gd = loadgraph("dolphins.lgz", SWGFormat())
-
-# ╔═╡ 22f24ab8-bb49-4593-a759-57d7f247a3ec
-cd = ACO(gd)
-
-# ╔═╡ 1db6765a-1895-4d04-9883-fa69ce5dfd12
-m_d = calculate_modularity(gd, cd)
-
-# ╔═╡ 0e05385b-3070-4d7d-807a-3aebd6d54c9a
-md"""
-This averages around 0.493 which is much lower than the one in the paper (0.529)
-
-Runs in around 10 s
- 
- # Testing American College Football
-"""
-
-# ╔═╡ bd8edef2-2b8d-41b9-8fac-3aebeefd1384
-gf = loadgraph("football.lgz", SWGFormat())
-
-# ╔═╡ 4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
-cf = ACO(gf)
-
-# ╔═╡ 38b3a27e-c999-4562-81e6-39d1ea5426fe
-mf = calculate_modularity(gf, cf)
-
-# ╔═╡ 3d75856c-926c-46ea-96bc-27221c4d9465
-md"""
-This averages around 0.528, which is also much lower than the one in the paper (0.605)
-
-Runs in around 56s
-
-# Testing Books about US politics
-"""
-
-# ╔═╡ 2e5a0d5f-0162-4bcb-943e-d550cf898ecf
-gb = loadgraph("books.lgz", SWGFormat())
-
-# ╔═╡ b10865d6-b996-443c-8fcb-a3534ccd970c
-cb = ACO(gb)
-
-# ╔═╡ 84eef671-a5c7-44fc-83d1-a71ab6e195b0
-mb = calculate_modularity(gb, cb)
-
-# ╔═╡ 800efd73-6172-4fdb-bfe0-f2b68aa4f953
-md"""
-This averages around 0.487, which is also much lower than the one in the paper (0,527)
-
-Runs in around 42s
-"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -652,14 +572,15 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╔═╡ Cell order:
 # ╟─57912b1c-83ae-11ec-2a63-57bf99a1eb84
 # ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
+# ╠═c6cfd2c4-fa36-49b8-b054-5d198610c31d
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
 # ╠═ca6fe67f-4f76-4cd2-a310-97211d61cef9
 # ╠═39bdd460-58de-4bcc-8237-12586b74a11b
 # ╠═fefdd2c0-02a7-4db3-b868-f40c98373e1f
 # ╠═f60bc671-65a7-4335-8388-22535751d23b
+# ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╟─c88acc56-32a0-4209-aa92-eec60e1bbbe7
 # ╠═bf2fe679-e748-4117-9425-c4285f0d729e
-# ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╠═74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
 # ╠═0d55705f-b656-4479-a7e9-5cbfef9063b3
 # ╠═af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
@@ -667,7 +588,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═c833cd39-58a3-4a8c-8281-d8ec862a0314
 # ╠═b6b71f29-5929-4b1d-abb4-e182deb5c8b3
 # ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-# ╠═8b130d9c-5712-45cb-8486-d07a1a98a894
 # ╠═0bbaaf25-4633-4a82-859e-db81068d680a
 # ╟─e66b3fe1-7979-4811-a349-4b027e112310
 # ╠═adaaeb50-f117-45ff-934b-890be5e972fe
@@ -675,23 +595,5 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
-# ╠═39d3be8a-402e-4151-957b-a1832cca6ded
-# ╟─fcebc348-7419-4055-aea2-58be96e065c8
-# ╠═a55bd0fb-4983-44f1-8140-699430a2cc1f
-# ╠═56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
-# ╠═f91a1596-e030-4eab-81f9-1b3a5c851440
-# ╟─2be67f9f-df4e-4be7-a05d-566e451af955
-# ╠═3a9f3626-2bac-447d-9255-6be61939f748
-# ╠═22f24ab8-bb49-4593-a759-57d7f247a3ec
-# ╠═1db6765a-1895-4d04-9883-fa69ce5dfd12
-# ╟─0e05385b-3070-4d7d-807a-3aebd6d54c9a
-# ╠═bd8edef2-2b8d-41b9-8fac-3aebeefd1384
-# ╠═4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
-# ╠═38b3a27e-c999-4562-81e6-39d1ea5426fe
-# ╟─3d75856c-926c-46ea-96bc-27221c4d9465
-# ╠═2e5a0d5f-0162-4bcb-943e-d550cf898ecf
-# ╠═b10865d6-b996-443c-8fcb-a3534ccd970c
-# ╠═84eef671-a5c7-44fc-83d1-a71ab6e195b0
-# ╟─800efd73-6172-4fdb-bfe0-f2b68aa4f953
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
