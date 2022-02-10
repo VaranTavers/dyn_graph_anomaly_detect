@@ -223,19 +223,20 @@ md"""
 
 # ╔═╡ d8684484-7770-48cc-bb00-43ad8a1067ed
 begin
-	graphs = [loadgraph("LFR/network$i.lgz", SWGFormat()) for i in 1:6]
-	communities_real = [CSV.read("LFR/community$i.dat", DataFrame, header=false)[!, "Column1"] for i in 1:6]
+	graphs = [loadgraph("LFR/network$i.lgz", SWGFormat()) for i in 1:12]
+	communities_real = [CSV.read("LFR/community$i.dat", DataFrame, header=false)[!, "Column1"] for i in 1:12]
 
 	communities_pred = collect(map(x -> ACO(x, vars), graphs))
 end
 
 # ╔═╡ bd674523-d245-4a7f-96c2-8d6e4c9d2826
 begin
-	modularities = [calculate_modularity(graphs[i], communities_pred[i]) for i in 1:6]
-	nmis = [normalized_mutual_information(communities_real[i], communities_pred[i]) for i in 1:6]
+	modularities = [calculate_modularity(graphs[i], communities_pred[i]) for i in 1:12]
+	nmis = [normalized_mutual_information(communities_real[i], communities_pred[i]) for i in 1:12]
 
+	Plots.plotly()
 	@show modularities
-	Plots.plot([0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [modularities, nmis], label=["Modularity" "NMI"])
+	Plots.plot(collect(0.05:0.05:0.6), [nmis, modularities], label=["NMI" "Modularity"])
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
