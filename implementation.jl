@@ -10,91 +10,6 @@ begin
 	using SimpleWeightedGraphs
 end
 
-# ╔═╡ 57912b1c-83ae-11ec-2a63-57bf99a1eb84
-html"""
-	<div>Happy holiday! Remember to take care of yourself and your loved ones!</div>
-<div id="snow"></div>
-<style>
-	body:not(.disable_ui):not(.more-specificity) {
-        background-color:#e9ecff;
-    }
-	pluto-output{
-		border-radius: 0px 8px 0px 0px;
-        background-color:#e9ecff;
-	}
-	#snow {
-        position: fixed;
-    	top: 0;
-    	left: 0;
-    	right: 0;
-    	bottom: 0;
-    	pointer-events: none;
-    	z-index: 1000;
-	}
-</style>
-<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-<script>
-        setTimeout(() => window.particlesJS("snow", {
-            "particles": {
-                "number": {
-                    "value": 70,
-                    "density": {
-                        "enable": true,
-                        "value_area": 800
-                    }
-                },
-                "color": {
-                    "value": "#ffffff"
-                },
-                "opacity": {
-                    "value": 0.7,
-                    "random": false,
-                    "anim": {
-                        "enable": false
-                    }
-                },
-                "size": {
-                    "value": 5,
-                    "random": true,
-                    "anim": {
-                        "enable": false
-                    }
-                },
-                "line_linked": {
-                    "enable": false
-                },
-                "move": {
-                    "enable": true,
-                    "speed": 5,
-                    "direction": "bottom",
-                    "random": true,
-                    "straight": false,
-                    "out_mode": "out",
-                    "bounce": false,
-                    "attract": {
-                        "enable": true,
-                        "rotateX": 300,
-                        "rotateY": 1200
-                    }
-                }
-            },
-            "interactivity": {
-                "events": {
-                    "onhover": {
-                        "enable": false
-                    },
-                    "onclick": {
-                        "enable": false
-                    },
-                    "resize": false
-                }
-            },
-            "retina_detect": true
-        }), 3000);
-	</script>
-"""
-
-
 # ╔═╡ c6cfd2c4-fa36-49b8-b054-5d198610c31d
 struct ACOSettings
 	α
@@ -602,7 +517,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╟─57912b1c-83ae-11ec-2a63-57bf99a1eb84
 # ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
 # ╠═c6cfd2c4-fa36-49b8-b054-5d198610c31d
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
