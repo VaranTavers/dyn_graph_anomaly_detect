@@ -51,7 +51,7 @@ begin
 		1, # α
 		2, # β
 		30, # number_of_ants
-		0.8, # ρ
+		0.9, # ρ
 		0.005, # ϵ
 		100, # max_number_of_iterations
 		300 # starting_pheromone_ammount
@@ -140,23 +140,39 @@ md"""
 # ╔═╡ b93aaa88-2c61-4d4e-9437-6e6e02d7fcfa
 apply_aco(x) = ACO(x, vars)
 
+# ╔═╡ 0bbc4ec9-4173-4a86-8252-29a3b9611b69
+apply_aco_multiple(x, n) = collect(Folds.map(_ -> apply_aco(x), zeros(n)))
+
+# ╔═╡ 3b00f0f8-5b8e-43a2-80e9-2b684aa63c7a
+calculate_average_modularity(g, preds) = sum(Folds.map(x -> calculate_modularity(g, x), preds)) / length(preds)
+
+# ╔═╡ 2c2b1b4a-00bd-45c5-bd04-3345da013ddc
+calculate_average_nmi(real, preds) = sum(Folds.map(x -> normalized_mutual_information(real, x), preds)) / length(preds)
+
 # ╔═╡ d8684484-7770-48cc-bb00-43ad8a1067ed
 begin
 	graphs = [loadgraph("LFR/network$i.lgz", SWGFormat()) for i in 1:12]
 	communities_real = [CSV.read("LFR/community$i.dat", DataFrame, header=false)[!, "Column1"] for i in 1:12]
+	number_of_runs = 20
 
-	communities_pred = collect(Folds.map(apply_aco, graphs))
+	communities_pred = collect(Folds.map(x -> apply_aco_multiple(x, number_of_runs), graphs))
 end
 
 # ╔═╡ bd674523-d245-4a7f-96c2-8d6e4c9d2826
 begin
-	modularities = [calculate_modularity(graphs[i], communities_pred[i]) for i in 1:12]
-	nmis = [normalized_mutual_information(communities_real[i], communities_pred[i]) for i in 1:12]
+	#modularities = [calculate_modularity(graphs[i], communities_pred[i]) for i in 1:12]
+	#nmis = [normalized_mutual_information(communities_real[i], communities_pred[i]) for i in 1:12]
 
+	modularities = Folds.map(x -> calculate_average_modularity(graphs[x], communities_pred[x]), 1:12)
+	nmis = Folds.map(x -> calculate_average_nmi(communities_real[x], communities_pred[x]), 1:12)
+	
 	Plots.plotly()
 	@show modularities
 	Plots.plot(collect(0.05:0.05:0.6), [nmis, modularities], label=["NMI" "Modularity"])
 end
+
+# ╔═╡ 94018f1f-7bb7-4b2f-b518-c2eeb6e5c195
+Threads.nthreads()
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1268,7 +1284,11 @@ version = "0.9.1+5"
 # ╟─800efd73-6172-4fdb-bfe0-f2b68aa4f953
 # ╟─bee220ff-bbf6-4e92-be95-6d718cd3237b
 # ╠═b93aaa88-2c61-4d4e-9437-6e6e02d7fcfa
+# ╠═0bbc4ec9-4173-4a86-8252-29a3b9611b69
+# ╠═3b00f0f8-5b8e-43a2-80e9-2b684aa63c7a
+# ╠═2c2b1b4a-00bd-45c5-bd04-3345da013ddc
 # ╠═d8684484-7770-48cc-bb00-43ad8a1067ed
 # ╠═bd674523-d245-4a7f-96c2-8d6e4c9d2826
+# ╠═94018f1f-7bb7-4b2f-b518-c2eeb6e5c195
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

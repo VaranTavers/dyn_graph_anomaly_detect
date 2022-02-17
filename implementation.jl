@@ -170,6 +170,25 @@ function generate_s(graph, η, τ, vars::ACOSettings)
 	s
 end
 
+# ╔═╡ ca49cc0e-b106-4dff-ad64-0ae5a568920c
+# Constructs a new solution
+function generate_s_avoid_duplicate(graph, η, τ, vars::ACOSettings)
+	n = nv(graph)
+	s = zeros(Int32, n)
+
+	for i in 1:n
+		j = 0
+		res = sample(calculate_probabilities(graph, η, τ, i, vars))
+		while s[res] == i && j < 100
+			res = sample(calculate_probabilities(graph, η, τ, i, vars))
+			j += 1
+		end
+		s[i] = res
+	end
+
+	s
+end
+
 # ╔═╡ 56269167-b380-4940-8278-adaa01356650
 # Built for bidirectional edges
 # Transforms the edge representation from generate_s to a community vector.
@@ -228,7 +247,11 @@ function ACO(graph, vars::ACOSettings)
 			@show i
 		end
 		# Construct new solution s according to Eq. 2
-		S = Folds.map(x -> generate_s(graph, η, τ, vars), zeros(vars.number_of_ants))
+		if i % 3 == 0
+			S = Folds.map(x -> generate_s(graph, η, τ, vars), zeros(vars.number_of_ants))
+		else
+			S = Folds.map(x -> generate_s_avoid_duplicate(graph, η, τ, vars), zeros(vars.number_of_ants))
+		end
 		#S = []
 		#for j in 1:vars.number_of_ants
 		#	append!(S, [generate_s(graph, η, τ, vars)])
@@ -298,13 +321,13 @@ end
 c_real = CSV.read("LFR/community3.dat", DataFrame, header=false)[!, "Column1"]
 
 # ╔═╡ bb633985-27c1-4ca6-b257-68413af3cb0c
-result = Folds.map(_ -> normalized_mutual_information(c_real, ACO(g_k, vars_k)), zeros(20))
+# result = Folds.map(_ -> normalized_mutual_information(c_real, ACO(g_k, vars_k)), zeros(20))
 
 # ╔═╡ c7a357f4-bfc5-48b0-83dd-e41b757d226f
 # sum(result) / 20
 
 # ╔═╡ 4e097b12-082b-4a5c-aa7e-8648135012aa
-normalized_mutual_information(c_real, ACO(g_k, vars_k))
+# normalized_mutual_information(c_real, ACO(g_k, vars_k))
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -796,6 +819,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═0bbaaf25-4633-4a82-859e-db81068d680a
 # ╠═adaaeb50-f117-45ff-934b-890be5e972fe
 # ╠═467549ca-519a-4a84-98e7-9e78d93342a2
+# ╠═ca49cc0e-b106-4dff-ad64-0ae5a568920c
 # ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
