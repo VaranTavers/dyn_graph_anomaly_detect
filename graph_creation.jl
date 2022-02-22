@@ -6,6 +6,7 @@ using InteractiveUtils
 
 # ╔═╡ 83b9fa3a-85d8-11ec-1eea-d92bb6a0b780
 begin
+    # Ez egy komment
 	using Graphs
 	using SimpleWeightedGraphs
 end
