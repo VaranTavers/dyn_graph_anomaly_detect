@@ -51,7 +51,7 @@ begin
 		1, # α
 		2, # β
 		30, # number_of_ants
-		0.9, # ρ
+		0.8, # ρ
 		0.005, # ϵ
 		100, # max_number_of_iterations
 		300 # starting_pheromone_ammount
@@ -64,7 +64,7 @@ md"""
 """
 
 # ╔═╡ a55bd0fb-4983-44f1-8140-699430a2cc1f
-gz = loadgraph("zachary.lgz", SWGFormat())
+gz = loadgraph("graphs/zachary.lgz", SWGFormat())
 
 # ╔═╡ 56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
 cz = ACO(gz, vars)
@@ -80,7 +80,7 @@ The modularity is close to the one in the Chang Honghao Paper (0,420)
 """
 
 # ╔═╡ 3a9f3626-2bac-447d-9255-6be61939f748
-gd = loadgraph("dolphins.lgz", SWGFormat())
+gd = loadgraph("graphs/dolphins.lgz", SWGFormat())
 
 # ╔═╡ 22f24ab8-bb49-4593-a759-57d7f247a3ec
 cd = ACO(gd, vars)
@@ -98,7 +98,7 @@ Runs in around 10 s
 """
 
 # ╔═╡ bd8edef2-2b8d-41b9-8fac-3aebeefd1384
-gf = loadgraph("football.lgz", SWGFormat())
+gf = loadgraph("graphs/football.lgz", SWGFormat())
 
 # ╔═╡ 4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
 cf = ACO(gf, vars)
@@ -116,7 +116,7 @@ Runs in around 56s
 """
 
 # ╔═╡ 2e5a0d5f-0162-4bcb-943e-d550cf898ecf
-gb = loadgraph("books.lgz", SWGFormat())
+gb = loadgraph("graphs/books.lgz", SWGFormat())
 
 # ╔═╡ b10865d6-b996-443c-8fcb-a3534ccd970c
 cb = ACO(gb, vars)
@@ -197,7 +197,7 @@ SimpleWeightedGraphs = "~1.2.1"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.Accessors]]

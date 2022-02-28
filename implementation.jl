@@ -304,7 +304,7 @@ end
 
 # ╔═╡ efdcdf7c-1135-4d05-bb47-8e8afe8cdf71
 begin
-	g_k = loadgraph("LFR/network3.lgz", SWGFormat())
+	g_k = loadgraph("LFR/network6.lgz", SWGFormat())
 	
 	vars_k = ACOSettings(
 			1, # α
@@ -318,7 +318,7 @@ begin
 end
 
 # ╔═╡ e902ccf1-6425-4c22-9a68-254acda90ce2
-c_real = CSV.read("LFR/community3.dat", DataFrame, header=false)[!, "Column1"]
+c_real = CSV.read("LFR/community6.dat", DataFrame, header=false)[!, "Column1"]
 
 # ╔═╡ bb633985-27c1-4ca6-b257-68413af3cb0c
 # result = Folds.map(_ -> normalized_mutual_information(c_real, ACO(g_k, vars_k)), zeros(20))
@@ -351,7 +351,7 @@ SimpleWeightedGraphs = "~1.2.1"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.1"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.Accessors]]
