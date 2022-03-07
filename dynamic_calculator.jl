@@ -4,361 +4,168 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 57912b3a-83ae-11ec-0fbf-9da8ce954fe1
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
+# ╔═╡ 4d1c9e56-9a19-11ec-176a-e17ab3202d23
 begin
 	using Graphs
-	using Distributed
+	using SimpleWeightedGraphs
 	using CSV
 	using DataFrames
-	using SimpleWeightedGraphs
 	using Folds
+	using PlutoUI
+	using GraphPlot
+	using Colors
 end
 
-# ╔═╡ c6cfd2c4-fa36-49b8-b054-5d198610c31d
-struct ACOSettings
-	α
-	β
-	number_of_ants
-	ρ
-	ϵ
-	max_number_of_iterations
-	starting_pheromone_ammount
+# ╔═╡ d4732069-a523-467e-8970-e67e51b7fe57
+function ingredients(path::String)
+	# this is from the Julia source code (evalfile in base/loading.jl)
+	# but with the modification that it returns the module instead of the last object
+	name = Symbol(basename(path))
+	m = Module(name)
+	Core.eval(m,
+        Expr(:toplevel,
+             :(eval(x) = $(Expr(:core, :eval))($name, x)),
+             :(include(x) = $(Expr(:top, :include))($name, x)),
+             :(include(mapexpr::Function, x) = $(Expr(:top, :include))(mapexpr, $name, x)),
+             :(include($path))))
+	m
 end
 
-# ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
-md"""
-## Helper functions
-"""
-
-# ╔═╡ 39bdd460-58de-4bcc-8237-12586b74a11b
-function logistic(x)
-	1 / (1 + exp(-x))
-end
-
-# ╔═╡ fefdd2c0-02a7-4db3-b868-f40c98373e1f
-# Kronecker delta function
-function δ(i, j)
-	if i == j
-		return 1
-	end
-	0
-end
-
-# ╔═╡ f60bc671-65a7-4335-8388-22535751d23b
-sample(weights) = findfirst(cumsum(weights) .> rand())
-
-# ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
-md"""
-## Benchmark functinos
-"""
-
-# ╔═╡ c88acc56-32a0-4209-aa92-eec60e1bbbe7
-md"""
-$A_{ij} - \frac{k_i * k_j}{2m}$
-"""
-
-# ╔═╡ bf2fe679-e748-4117-9425-c4285f0d729e
-function calculate_modularity_inner(graph, i, j)
-	m = ne(graph)
-	A_ij = has_edge(graph, i, j) ? 1 : 0
-	k_i = length(all_neighbors(graph, i))
-	k_j = length(all_neighbors(graph, j))
-
-	A_ij - (k_i * k_j) / 2m
-end
-
-# ╔═╡ 74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-function calculate_modularity(graph, c)
-	m = ne(graph)
-	n = nv(graph)
-
-	s = sum(Iterators.flatten([
-		[ calculate_modularity_inner(graph, i, j) * δ(c[i], c[j])
-		for j in 1:n] for i in 1:n]))
-
-	s / 2m
-end
-
-# ╔═╡ 0d55705f-b656-4479-a7e9-5cbfef9063b3
-function community_entropy_inner(c, i)
-	n = length(c)
-	nx_i = count(x -> x == i, c)
-
-	nx_i * log(nx_i / n) / n
-end
-
-# ╔═╡ af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
-function community_entropy(c)
-	- sum([community_entropy_inner(c, i) for i in 1:maximum(c)])
-end
-
-# ╔═╡ 31115dfc-2898-431e-962a-588e854a05d8
-function mutual_information_inner(c1, c2, i, j)
-	n = length(c1)
-	z = zip(c1, c2)
-	nxy_ij = count(x -> x == (i, j), z)
-	nx_i = count(x -> x == i, c1)
-	ny_j = count(x -> x == j, c2)
-
-	if nxy_ij == 0
-		return 0
-	end
-	
-	nxy_ij * log((nxy_ij / n) / ((nx_i / n) * (ny_j / n))) / n
-end
-
-# ╔═╡ c833cd39-58a3-4a8c-8281-d8ec862a0314
-function mutual_information(c1, c2)
-	sum([sum([mutual_information_inner(c1, c2, i, j) for j in 1:maximum(c2)]) for i in 1:maximum(c1)])
-end
-
-# ╔═╡ b6b71f29-5929-4b1d-abb4-e182deb5c8b3
-function normalized_mutual_information(c1, c2)
-	2 * mutual_information(c1, c2) / (community_entropy(c1) + community_entropy(c2))
-end
-
-# ╔═╡ 8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-md"""
-## Global settings for the Ant colony optimalization algorithm. 
-"""
-
-# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
-md"""
-$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
-"""
-
-# ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
-function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
-	n = nv(graph)
-	
-	μ_i = sum(map(x -> graph.weights[i, x], 1:n)) / nv(graph)
-	μ_j = sum(map(x -> graph.weights[j, x], 1:n)) / nv(graph)
-	σ_i = sqrt(sum(map(x -> (graph.weights[i, x] - μ_i) ^ 2, 1:n)) / n)
-	σ_j = sqrt(sum(map(x -> (graph.weights[j, x] - μ_j) ^ 2, 1:n)) / n)
-
-	if σ_i * σ_j == 0
-		return -1
-	end
-
-	numerator = sum(
-		[(graph.weights[i, x] - μ_i) * (graph.weights[j, x] - μ_j) for x in 1:n]
-	)
-
-	numerator / (n * σ_i * σ_j)
-end
-
-# ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
-# Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(graph, η, τ, i, vars::ACOSettings)
-	n = nv(graph)
-
-	p = [(graph.weights[i,j] * τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
-	if maximum(p) == 0
-		p[i] = 1
-	end
-	s_p = sum(p)
-
-	p ./= s_p
-
-	p
-end
-
-# ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
-# Constructs a new solution
-function generate_s(graph, η, τ, vars::ACOSettings)
-	n = nv(graph)
-	s = zeros(Int32, n)
-
-	for i in 1:n
-		res = sample(calculate_probabilities(graph, η, τ, i, vars))
-		s[i] = res
-	end
-
-	s
-end
-
-# ╔═╡ ca49cc0e-b106-4dff-ad64-0ae5a568920c
-# Constructs a new solution
-function generate_s_avoid_duplicate(graph, η, τ, vars::ACOSettings)
-	n = nv(graph)
-	s = zeros(Int32, n)
-
-	for i in 1:n
-		j = 0
-		res = sample(calculate_probabilities(graph, η, τ, i, vars))
-		while s[res] == i && j < 100
-			res = sample(calculate_probabilities(graph, η, τ, i, vars))
-			j += 1
-		end
-		s[i] = res
-	end
-
-	s
-end
-
-# ╔═╡ 56269167-b380-4940-8278-adaa01356650
-# Built for bidirectional edges
-# Transforms the edge representation from generate_s to a community vector.
-function compute_solution(n, η, τ, edges)
-	tmp_g = SimpleWeightedGraph(n)
-	for (a, b) in enumerate(edges)
-		add_edge!(tmp_g, a, b)
-	end
-	
-	s = zeros(Int32, n)
-	start = 1
-	clust = 1
-	while start <= n
-		# Skip the points, which already have a community
-		while start <= n && s[start] != 0
-			start += 1
-		end
-		if start > n
-			break
-		end
-		# If we have found a point that has no community we check it has any neighbors. If it doesn't we don't assign it to a community. (it has no neighbors if it has an edge to itself)
-		if tmp_g.weights[start, start] == 0
-			s[start] = clust
-			for (j, v) in enumerate(dfs_parents(tmp_g, start))
-				if v > 0
-					s[j] = clust
-				end
-			end
-			clust += 1
-		else
-			start += 1
-		end
-	end
-	
-	s
-end
-
-# ╔═╡ aa8314fd-ab17-4e23-9e83-dc79a6f69209
-function choose_iteration_best(graph, η, τ, iterations)
-	n = nv(graph)
-	
-	points = Folds.map(x -> calculate_modularity(graph, compute_solution(n, η, τ, x)), iterations)
-	index = argmax(points)
-	(iterations[index], points[index])
-end
-
-# ╔═╡ 8167196c-4a45-45f0-b55b-26b69f27904b
-function ACO(graph, vars::ACOSettings)
-	#Set parameters and initialize pheromone traits.
-	n = nv(graph)
-	
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
-	τ = ones(n, n) .* vars.starting_pheromone_ammount # TODO set to relatively high
-	sgb = [i for i in 1:n]
-	sgb_val = -1000
-	τ_max = vars.starting_pheromone_ammount
-	τ_min = 0
-	
-	# While termination condition not met
-	for i in 1:vars.max_number_of_iterations
-		if i % 10 == 0
-			@show i
-		end
-		# Construct new solution s according to Eq. 2
-		if i % 3 < 2
-			S = Folds.map(x -> generate_s(graph, η, τ, vars), zeros(vars.number_of_ants))
-		else
-			S = Folds.map(x -> generate_s_avoid_duplicate(graph, η, τ, vars), zeros(vars.number_of_ants))
-		end
-		#S = []
-		#for j in 1:vars.number_of_ants
-		#	append!(S, [generate_s(graph, η, τ, vars)])
-		#end
-
-		# Update iteration best
-		(sib, sib_val) = choose_iteration_best(graph, η, τ, S)
-		if sib_val > sgb_val
-			sgb_val = sib_val
-			sgb = sib
-			
-			# Compute pheromone trail limits
-			τ_max = sgb_val / (1 - vars.ρ)
-			τ_min = vars.ϵ * τ_max
-		end
-		# Update pheromone trails
-		τ .*= vars.ρ
-		for (a, b) in enumerate(sib)
-			if sib[b] != a
-				τ[a, b] += sib_val
-				τ[b, a] += sib_val
-			end
-		end
-		τ = min.(τ, τ_max)
-		τ = max.(τ, τ_min)
-
-	end
-	compute_solution(n, η, τ,sgb)
-end
-
-# ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
+# ╔═╡ 102b3c2a-9506-4a59-8c8d-e38692e22742
 begin
-	g = loadgraph("graphs/changhonghao2013 (copy).lgz", SWGFormat())
-	
+	implementation_jl = ingredients("./implementation.jl")
+	import .implementation_jl: ACO, calculate_modularity, ACOSettings, normalized_mutual_information
+end
+
+# ╔═╡ 3f4eb27b-8834-4997-8f8b-02d99250d2f8
+md"""
+Input name (without number):
+
+$(@bind name TextField())
+"""
+
+# ╔═╡ 90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
+md"""
+Number of files:
+
+$(@bind number_of_files NumberField(0:100, default=20))
+"""
+
+# ╔═╡ 2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
+begin
 	vars = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = ACO(g, vars)
-	@show c
-	calculate_modularity(g, c)
-	
+		1, # α
+		2, # β
+		30, # number_of_ants
+		0.8, # ρ
+		0.005, # ϵ
+		100, # max_number_of_iterations
+		300 # starting_pheromone_ammount
+	)
 end
 
-# ╔═╡ efdcdf7c-1135-4d05-bb47-8e8afe8cdf71
+# ╔═╡ 48509c7e-40cc-4930-967f-75f77c14701d
+apply_aco(x) = ACO(x, vars)
+
+# ╔═╡ 27207be6-5031-4001-a98d-cb356b7ace68
+graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
+
+# ╔═╡ f891fd6d-a77e-46bf-b677-e500459e4658
+communities_pred = Folds.map(apply_aco, graphs)
+
+# ╔═╡ 38332987-c58c-45b8-98fc-c5f136cdaf7b
+function calculate_community_similarity(c1, c2, i, j)
+	n = length(c1)
+	1 - count((c1 .== i) .⊻ (c2 .== j)) / n
+end
+
+# ╔═╡ 13ed986d-6d0c-4720-9fad-37bea748abac
+function calc_sim(c_list, (com_i, c_list_i), (com_j, c_list_j))
+	calculate_community_similarity(c_list[c_list_i], c_list[c_list_j], com_i, com_j)
+end
+
+# ╔═╡ cfba2a38-6814-4382-9001-1264e9668573
+function relabel_communities(c_list, p)
+	ret = deepcopy(c_list)
+	communities = [1 for i in 1:maximum(c_list[1])]
+	
+	for i in 2:length(ret)
+		c = ret[i]
+		c[c .> 0] .+= length(communities)
+		@show c
+		n_c = maximum(c)
+		translation = zeros(n_c)
+		for c_i in (length(communities) + 1):n_c
+			scores = Folds.map(x -> calc_sim(ret, x, (c_i, i)), enumerate(communities))
+			max_score_index = argmax(scores)
+			if scores[max_score_index] < p
+				append!(communities, i)
+			else
+				@show "Rewrite"
+				c[c .== c_i] .= max_score_index
+			end
+		end
+	end
+
+	ret
+end
+
+# ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
+communities_pred2 = relabel_communities(communities_pred, 0.6)
+
+# ╔═╡ b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
+num_of_relabeled_communities = maximum(maximum.(communities_pred2))
+
+# ╔═╡ 9b0d565b-7df2-475e-9aea-8c54a9b23519
+# TODO: Build a community database, if best fitting community is sufficiently different from it's ancestor, we may declare it as a new community.
+# TODO: Community evolution?
+
+# ╔═╡ 31c046f1-5b2b-4963-99a5-6ab4924cc487
+@bind g_i Scrubbable(1:length(graphs))
+
+# ╔═╡ df1bab46-1112-498d-961d-da9b45aa0461
+colors = distinguishable_colors(num_of_relabeled_communities + 1)
+
+# ╔═╡ 17e167af-485d-4069-b421-6cef0e84ac64
+nodefillc = colors[communities_pred2[g_i] .+ 1]
+
+# ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 begin
-	g_k = loadgraph("LFR/network6.lgz", SWGFormat())
-	
-	vars_k = ACOSettings(
-			1, # α
-			1, # β
-			30, # number_of_ants
-			0.9, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			1000 # starting_pheromone_ammount
-		)
+	nodelabel = 1:nv(graphs[g_i])
+	layout=(args...)->spring_layout(args...; C=30)
+	plot = gplot(graphs[g_i], layout=layout, nodesize=3, nodelabel=nodelabel, nodefillc=nodefillc)
 end
-
-# ╔═╡ e902ccf1-6425-4c22-9a68-254acda90ce2
-c_real = CSV.read("LFR/community6.dat", DataFrame, header=false)[!, "Column1"]
-
-# ╔═╡ bb633985-27c1-4ca6-b257-68413af3cb0c
-# result = Folds.map(_ -> normalized_mutual_information(c_real, ACO(g_k, vars_k)), zeros(20))
-
-# ╔═╡ c7a357f4-bfc5-48b0-83dd-e41b757d226f
-# sum(result) / 20
-
-# ╔═╡ 4e097b12-082b-4a5c-aa7e-8648135012aa
-# normalized_mutual_information(c_real, ACO(g_k, vars_k))
-
-# ╔═╡ c2ba2d91-36e6-42d2-9b77-150e98614f93
-a = sample([0, 1, 0])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
+GraphPlot = "a2cc645c-3eea-5389-862e-a155d0052231"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
 
 [compat]
 CSV = "~0.10.2"
+Colors = "~0.12.8"
 DataFrames = "~1.3.2"
 Folds = "~0.2.7"
-Graphs = "~1.5.1"
+GraphPlot = "~0.5.0"
+Graphs = "~1.6.0"
+PlutoUI = "~0.7.23"
 SimpleWeightedGraphs = "~1.2.1"
 """
 
@@ -368,6 +175,12 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.7.2"
 manifest_format = "2.0"
+
+[[deps.AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.1.4"
 
 [[deps.Accessors]]
 deps = ["Compat", "CompositionsBase", "ConstructionBase", "Future", "LinearAlgebra", "MacroTools", "Requires", "Test"]
@@ -400,9 +213,9 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[deps.BangBang]]
 deps = ["Compat", "ConstructionBase", "Future", "InitialValues", "LinearAlgebra", "Requires", "Setfield", "Tables", "ZygoteRules"]
-git-tree-sha1 = "d648adb5e01b77358511fb95ea2e4d384109fac9"
+git-tree-sha1 = "b15a6bc52594f5e4a3b825858d1089618871bf9d"
 uuid = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
-version = "0.3.35"
+version = "0.3.36"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -424,6 +237,18 @@ git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
 
+[[deps.ColorTypes]]
+deps = ["FixedPointNumbers", "Random"]
+git-tree-sha1 = "32a2b8af383f11cbb65803883837a149d10dfe8a"
+uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
+version = "0.10.12"
+
+[[deps.Colors]]
+deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
+git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
+uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
+version = "0.12.8"
+
 [[deps.Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
 git-tree-sha1 = "44c37b4636bc54afac5c574d2d02b625349d6582"
@@ -433,6 +258,12 @@ version = "3.41.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+
+[[deps.Compose]]
+deps = ["Base64", "Colors", "DataStructures", "Dates", "IterTools", "JSON", "LinearAlgebra", "Measures", "Printf", "Random", "Requires", "Statistics", "UUIDs"]
+git-tree-sha1 = "9a2695195199f4f20b94898c8a8ac72609e165a4"
+uuid = "a81c6b42-2e10-5240-aca2-a61377ecd94b"
+version = "0.9.3"
 
 [[deps.CompositionsBase]]
 git-tree-sha1 = "455419f7e328a1a2493cabc6428d79e951349769"
@@ -499,6 +330,12 @@ git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
 
+[[deps.FixedPointNumbers]]
+deps = ["Statistics"]
+git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
+uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
+version = "0.8.4"
+
 [[deps.Folds]]
 deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
 git-tree-sha1 = "8559de3011264727473c96e1f794f9ddcac2bb1c"
@@ -515,11 +352,34 @@ version = "0.4.2"
 deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
+[[deps.GraphPlot]]
+deps = ["ArnoldiMethod", "ColorTypes", "Colors", "Compose", "DelimitedFiles", "Graphs", "LinearAlgebra", "Random", "SparseArrays"]
+git-tree-sha1 = "5e51d9d9134ebcfc556b82428521fe92f709e512"
+uuid = "a2cc645c-3eea-5389-862e-a155d0052231"
+version = "0.5.0"
+
 [[deps.Graphs]]
 deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
-git-tree-sha1 = "d727758173afef0af878b29ac364a0eca299fc6b"
+git-tree-sha1 = "57c021de207e234108a6f1454003120a1bf350c4"
 uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
-version = "1.5.1"
+version = "1.6.0"
+
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.4"
+
+[[deps.HypertextLiteral]]
+git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
+uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "0.9.3"
+
+[[deps.IOCapture]]
+deps = ["Logging", "Random"]
+git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
+uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+version = "0.2.2"
 
 [[deps.Inflate]]
 git-tree-sha1 = "f5fc07d4e706b84f72d54eedcc1c13d92fb0871c"
@@ -546,10 +406,21 @@ git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
 uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 version = "1.1.0"
 
+[[deps.IterTools]]
+git-tree-sha1 = "fa6287a4469f5e048d763df38279ee729fbd44e5"
+uuid = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
+version = "1.4.0"
+
 [[deps.IteratorInterfaceExtensions]]
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[deps.JSON]]
+deps = ["Dates", "Mmap", "Parsers", "Unicode"]
+git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
+uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+version = "0.21.3"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -591,6 +462,11 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 
+[[deps.Measures]]
+git-tree-sha1 = "e498ddeee6f9fdb4551ce855a46f54dbd900245f"
+uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
+version = "0.3.1"
+
 [[deps.MicroCollections]]
 deps = ["BangBang", "InitialValues", "Setfield"]
 git-tree-sha1 = "6bb7786e4f24d44b4e29df03c69add1b63d88f01"
@@ -630,6 +506,12 @@ version = "2.2.2"
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
+git-tree-sha1 = "5152abbdab6488d5eec6a01029ca6697dff4ec8f"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.23"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -686,9 +568,9 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [[deps.Setfield]]
 deps = ["ConstructionBase", "Future", "MacroTools", "Requires"]
-git-tree-sha1 = "0afd9e6c623e379f593da01f20590bacc26d1d14"
+git-tree-sha1 = "38d88503f695eb0301479bc9b0d4320b378bafe5"
 uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-version = "0.8.1"
+version = "0.8.2"
 
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
@@ -727,9 +609,9 @@ version = "0.1.14"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "a635a9333989a094bddc9f940c04c549cd66afcf"
+git-tree-sha1 = "74fb527333e72ada2dd9ef77d98e4991fb185f04"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.3.4"
+version = "1.4.1"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -814,36 +696,24 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
-# ╠═c6cfd2c4-fa36-49b8-b054-5d198610c31d
-# ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
-# ╠═39bdd460-58de-4bcc-8237-12586b74a11b
-# ╠═fefdd2c0-02a7-4db3-b868-f40c98373e1f
-# ╠═f60bc671-65a7-4335-8388-22535751d23b
-# ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
-# ╟─c88acc56-32a0-4209-aa92-eec60e1bbbe7
-# ╠═bf2fe679-e748-4117-9425-c4285f0d729e
-# ╠═74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-# ╠═0d55705f-b656-4479-a7e9-5cbfef9063b3
-# ╠═af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
-# ╠═31115dfc-2898-431e-962a-588e854a05d8
-# ╠═c833cd39-58a3-4a8c-8281-d8ec862a0314
-# ╠═b6b71f29-5929-4b1d-abb4-e182deb5c8b3
-# ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-# ╟─e66b3fe1-7979-4811-a349-4b027e112310
-# ╠═0bbaaf25-4633-4a82-859e-db81068d680a
-# ╠═adaaeb50-f117-45ff-934b-890be5e972fe
-# ╠═467549ca-519a-4a84-98e7-9e78d93342a2
-# ╠═ca49cc0e-b106-4dff-ad64-0ae5a568920c
-# ╠═56269167-b380-4940-8278-adaa01356650
-# ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
-# ╠═8167196c-4a45-45f0-b55b-26b69f27904b
-# ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
-# ╠═efdcdf7c-1135-4d05-bb47-8e8afe8cdf71
-# ╠═e902ccf1-6425-4c22-9a68-254acda90ce2
-# ╠═bb633985-27c1-4ca6-b257-68413af3cb0c
-# ╠═c7a357f4-bfc5-48b0-83dd-e41b757d226f
-# ╠═4e097b12-082b-4a5c-aa7e-8648135012aa
-# ╠═c2ba2d91-36e6-42d2-9b77-150e98614f93
+# ╠═4d1c9e56-9a19-11ec-176a-e17ab3202d23
+# ╠═d4732069-a523-467e-8970-e67e51b7fe57
+# ╠═102b3c2a-9506-4a59-8c8d-e38692e22742
+# ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
+# ╟─90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
+# ╠═2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
+# ╠═48509c7e-40cc-4930-967f-75f77c14701d
+# ╠═27207be6-5031-4001-a98d-cb356b7ace68
+# ╠═f891fd6d-a77e-46bf-b677-e500459e4658
+# ╠═38332987-c58c-45b8-98fc-c5f136cdaf7b
+# ╠═13ed986d-6d0c-4720-9fad-37bea748abac
+# ╠═cfba2a38-6814-4382-9001-1264e9668573
+# ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
+# ╠═b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
+# ╠═9b0d565b-7df2-475e-9aea-8c54a9b23519
+# ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
+# ╠═df1bab46-1112-498d-961d-da9b45aa0461
+# ╠═17e167af-485d-4069-b421-6cef0e84ac64
+# ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
