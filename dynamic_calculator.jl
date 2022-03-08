@@ -123,8 +123,78 @@ end
 # ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
 communities_pred2 = relabel_communities(communities_pred, 0.6)
 
+# ╔═╡ b09d6945-b3c9-482a-883f-c48126c36244
+matrix = mapreduce(permutedims, vcat, communities_pred2);
+
 # ╔═╡ b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
 num_of_relabeled_communities = maximum(maximum.(communities_pred2))
+
+# ╔═╡ f14c9452-72fe-4ed7-905c-ed7b2dd55b19
+community_size_lists = [map(x -> count(x .== i), communities_pred2) for i in 1:num_of_relabeled_communities]
+
+# ╔═╡ 8344c5b6-3ea1-41db-bd0c-865e7e8e1479
+function calculate_community_birth(size_list)
+	for (i, n) in enumerate(size_list)
+		# If a community is present at this point, it barely appears before this point, and it is barely missing after this point, then we consider this point the "birth" of the community.
+		if n != 0 && 
+		count(size_list[i:end] .> 0) / (length(size_list[i:end])) > 0.8 &&	
+		count(size_list[1:i] .== 0) / (i + 1) > 0.7
+			return i
+		end
+	end
+
+	0
+end
+
+# ╔═╡ 001277e1-e624-40bc-b6f2-6f9b09c4b4b9
+function calculate_community_death(size_list)
+	for (i, n) in enumerate(size_list)
+		# If a community is not present at this point, it barely appears after this point, and it was barely missing before this point, then we consider this point the "death" of the community.
+		if n == 0 && 
+		count(size_list[i:end] .== 0) / (length(size_list[i:end])) > 0.8 &&	
+		count(size_list[1:i] .> 0) / (i + 1) > 0.7
+			return i
+		end
+	end
+
+	0
+end
+
+# ╔═╡ 1c7fb208-4497-4fdf-b61d-734b18bebdb7
+function calculate_unusual_size_change(c_s, baseline)
+	[
+		(i - baseline) / baseline > 1 ? 1 :
+		(baseline - i) / baseline > 0.5 && i != 0 ? -1 : 0
+		for i in c_s
+	]
+end
+
+# ╔═╡ 8074e0f0-e833-4e66-b932-7b96bbd39bc6
+function calculate_unusual_appearance(c_s, birth, death)
+	# If a community is not present in more than 10% of the point in time, it's every appearance is considered unusual, otherwise every appearance before "birth" or after "death" is considered unusual.
+	if death == 0
+		death = length(c_s) + 1
+	end
+	if count(c_s .!= 0) / length(c_s) < 0.1
+		birth = length(c_s)
+	end
+
+	[ (i < birth && v > 0) || (i > death && v != 0) for (i, v) in enumerate(c_s)]
+end
+
+# ╔═╡ deb61f39-bea6-4860-9069-f18c03741db9
+function find_impostors(c_mat)
+	# find points which switch communities for a short period of time
+end
+
+# ╔═╡ 6cdb9c6f-a929-4eb1-aa57-42d41776ed22
+calculate_unusual_appearance(
+	community_size_lists[1],
+	calculate_community_birth(community_size_lists[1]),
+	calculate_community_death(community_size_lists[1]))
+
+# ╔═╡ 1c6b9f15-2805-4eac-bd31-f1630fd8434c
+c_deaths = [calculate_community_birth(community_size_lists[i]) for i in 1:num_of_relabeled_communities]
 
 # ╔═╡ 9b0d565b-7df2-475e-9aea-8c54a9b23519
 # TODO: Build a community database, if best fitting community is sufficiently different from it's ancestor, we may declare it as a new community.
@@ -142,7 +212,7 @@ nodefillc = colors[communities_pred2[g_i] .+ 1]
 # ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 begin
 	nodelabel = 1:nv(graphs[g_i])
-	layout=(args...)->spring_layout(args...; C=30)
+	layout=(args...)->spring_layout(args...; C=10)
 	plot = gplot(graphs[g_i], layout=layout, nodesize=3, nodelabel=nodelabel, nodefillc=nodefillc)
 end
 
@@ -709,7 +779,16 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═13ed986d-6d0c-4720-9fad-37bea748abac
 # ╠═cfba2a38-6814-4382-9001-1264e9668573
 # ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
+# ╠═b09d6945-b3c9-482a-883f-c48126c36244
 # ╠═b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
+# ╠═f14c9452-72fe-4ed7-905c-ed7b2dd55b19
+# ╠═8344c5b6-3ea1-41db-bd0c-865e7e8e1479
+# ╠═001277e1-e624-40bc-b6f2-6f9b09c4b4b9
+# ╠═1c7fb208-4497-4fdf-b61d-734b18bebdb7
+# ╠═8074e0f0-e833-4e66-b932-7b96bbd39bc6
+# ╠═deb61f39-bea6-4860-9069-f18c03741db9
+# ╠═6cdb9c6f-a929-4eb1-aa57-42d41776ed22
+# ╠═1c6b9f15-2805-4eac-bd31-f1630fd8434c
 # ╠═9b0d565b-7df2-475e-9aea-8c54a9b23519
 # ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
 # ╠═df1bab46-1112-498d-961d-da9b45aa0461
