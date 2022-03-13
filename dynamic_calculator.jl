@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -89,6 +89,18 @@ function calculate_community_similarity(c1, c2, i, j)
 	1 - count((c1 .== i) .⊻ (c2 .== j)) / n
 end
 
+# ╔═╡ e76ff84a-374f-478e-8e7d-dc1d0c56f8d5
+function calculate_community_similarity2(c1, c2, i, j)
+	n = length(c1)
+	n1 = count((c1 .== i))
+
+	# If a point is present in both communities 4 points
+	# If a point is absent from both communities 2 points
+	# If a point is present only in the second community 1 point
+	(count((c1 .== i) .&& (c2 .== j)) * 4 -
+	count((c1 .!= i) .&& (c2 .== j))) / (4 * n1)
+end
+
 # ╔═╡ 13ed986d-6d0c-4720-9fad-37bea748abac
 function calc_sim(c_list, (com_i, c_list_i), (com_j, c_list_j))
 	calculate_community_similarity(c_list[c_list_i], c_list[c_list_j], com_i, com_j)
@@ -102,16 +114,14 @@ function relabel_communities(c_list, p)
 	for i in 2:length(ret)
 		c = ret[i]
 		c[c .> 0] .+= length(communities)
-		@show c
 		n_c = maximum(c)
 		translation = zeros(n_c)
 		for c_i in (length(communities) + 1):n_c
-			scores = Folds.map(x -> calc_sim(ret, x, (c_i, i)), enumerate(communities))
+			scores = Folds.map(x -> calc_sim(ret, (c_i, i), x), enumerate(communities))
 			max_score_index = argmax(scores)
 			if scores[max_score_index] < p
 				append!(communities, i)
 			else
-				@show "Rewrite"
 				c[c .== c_i] .= max_score_index
 			end
 		end
@@ -182,6 +192,39 @@ function calculate_unusual_appearance(c_s, birth, death)
 	[ (i < birth && v > 0) || (i > death && v != 0) for (i, v) in enumerate(c_s)]
 end
 
+# ╔═╡ f829a9e0-c653-401f-8603-89dd173a0dca
+calculate_community_similarity2([1, 1, 1, 1, 1, 1, 1, 1, 0, 0], [0, 0, 1, 1, 1, 1, 0, 0, 0, 0], 1, 1)
+
+# ╔═╡ 77a98261-9218-49d4-91f4-1f77bdd7ca99
+function get_renamed_community(community, c_start, c_dest)
+	res = deepcopy(community)
+	res[res .== c_start] .= c_dest
+
+	res
+end
+
+# ╔═╡ b8a0f801-e80a-4f57-b4ab-7e1ca888170e
+function get_best_composition(communitites_pred, time, goal_community)
+	current_community = communities_pred[time]
+	communities_present = unique(current_community)
+
+	sim_scores_renamed = map(x -> (x, ), communitites_present)
+	
+end
+
+# ╔═╡ aa80e9c7-0de6-430c-bed9-9f3f2d038432
+function calculate_splitting(communities_pred, size_list)
+	result = []
+	
+	for (i, (a, b)) in enumerate(zip(size_list[2:end], size_list))
+		if a != 0 || b == 0
+			continue
+		end
+
+		
+	end
+end
+
 # ╔═╡ deb61f39-bea6-4860-9069-f18c03741db9
 function find_impostors(c_mat)
 	# find points which switch communities for a short period of time
@@ -194,7 +237,7 @@ calculate_unusual_appearance(
 	calculate_community_death(community_size_lists[1]))
 
 # ╔═╡ 1c6b9f15-2805-4eac-bd31-f1630fd8434c
-c_deaths = [calculate_community_birth(community_size_lists[i]) for i in 1:num_of_relabeled_communities]
+c_deaths = [calculate_community_death(community_size_lists[i]) for i in 1:num_of_relabeled_communities]
 
 # ╔═╡ 9b0d565b-7df2-475e-9aea-8c54a9b23519
 # TODO: Build a community database, if best fitting community is sufficiently different from it's ancestor, we may declare it as a new community.
@@ -212,9 +255,12 @@ nodefillc = colors[communities_pred2[g_i] .+ 1]
 # ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 begin
 	nodelabel = 1:nv(graphs[g_i])
-	layout=(args...)->spring_layout(args...; C=10)
+	layout=(args...)->spring_layout(args...; C=30)
 	plot = gplot(graphs[g_i], layout=layout, nodesize=3, nodelabel=nodelabel, nodefillc=nodefillc)
 end
+
+# ╔═╡ 93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
+Threads.nthreads()
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -776,6 +822,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═27207be6-5031-4001-a98d-cb356b7ace68
 # ╠═f891fd6d-a77e-46bf-b677-e500459e4658
 # ╠═38332987-c58c-45b8-98fc-c5f136cdaf7b
+# ╠═e76ff84a-374f-478e-8e7d-dc1d0c56f8d5
 # ╠═13ed986d-6d0c-4720-9fad-37bea748abac
 # ╠═cfba2a38-6814-4382-9001-1264e9668573
 # ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
@@ -786,6 +833,10 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═001277e1-e624-40bc-b6f2-6f9b09c4b4b9
 # ╠═1c7fb208-4497-4fdf-b61d-734b18bebdb7
 # ╠═8074e0f0-e833-4e66-b932-7b96bbd39bc6
+# ╠═f829a9e0-c653-401f-8603-89dd173a0dca
+# ╠═77a98261-9218-49d4-91f4-1f77bdd7ca99
+# ╠═b8a0f801-e80a-4f57-b4ab-7e1ca888170e
+# ╠═aa80e9c7-0de6-430c-bed9-9f3f2d038432
 # ╠═deb61f39-bea6-4860-9069-f18c03741db9
 # ╠═6cdb9c6f-a929-4eb1-aa57-42d41776ed22
 # ╠═1c6b9f15-2805-4eac-bd31-f1630fd8434c
@@ -794,5 +845,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═df1bab46-1112-498d-961d-da9b45aa0461
 # ╠═17e167af-485d-4069-b421-6cef0e84ac64
 # ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
+# ╠═93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
