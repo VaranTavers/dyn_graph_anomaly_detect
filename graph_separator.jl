@@ -80,9 +80,9 @@ function graph_from_edges(df, n, mask)
 			end
 		else
 			for (a, b, w, _) in eachrow(df_curated)
-				add_edge!(g, a, b, 1)
+				add_edge!(g, a, b, w)
 				if force_undirected
-					add_edge!(g, b, a, 1)
+					add_edge!(g, b, a, w)
 				end
 			end
 		end
