@@ -1,0 +1,44 @@
+Number of people 101
+Number of classes 9
+Number of friend groups 55
+Number of friend groups 10
+Number of classes/day 3
+Ratio of interaction with other class, during class per 5 minutes (x / 1000): 1
+Ratio of interaction with other group, during break per minute (x / 1000): 5
+Time intervals in minutes: 1
+Classtime switch at 17.0 , person: 29, 1 -> 3
+Classtime switch at 29.0 , person: 61, 8 -> 1
+Classtime switch at 34.0 , person: 17, 7 -> 5
+Classtime switch at 43.0 , person: 44, 1 -> 8
+Classtime switch at 49.0 , person: 88, 9 -> 4
+Breaktime switch at 50.0 , person: 1, 48 -> 17
+Breaktime switch at 52.0 , person: 42, 14 -> 35
+Breaktime switch at 52.0 , person: 44, 47 -> 10
+Breaktime switch at 52.0 , person: 52, 14 -> 24
+Breaktime switch at 53.0 , person: 88, 44 -> 53
+Breaktime switch at 54.0 , person: 3, 35 -> 52
+Breaktime switch at 55.0 , person: 32, 55 -> 16
+Breaktime switch at 55.0 , person: 98, 12 -> 54
+Breaktime switch at 57.0 , person: 27, 10 -> 25
+Breaktime switch at 59.0 , person: 62, 13 -> 22
+Classtime switch at 70.0 , person: 46, 4 -> 1
+Classtime switch at 74.0 , person: 52, 1 -> 5
+Classtime switch at 80.0 , person: 88, 9 -> 3
+Classtime switch at 86.0 , person: 15, 2 -> 5
+Classtime switch at 91.0 , person: 92, 8 -> 9
+Classtime switch at 91.0 , person: 94, 5 -> 7
+Classtime switch at 105.0 , person: 16, 7 -> 9
+Breaktime switch at 111.0 , person: 81, 26 -> 55
+Breaktime switch at 115.0 , person: 73, 19 -> 46
+Classtime switch at 127.0 , person: 26, 3 -> 4
+Classtime switch at 132.0 , person: 43, 3 -> 9
+Classtime switch at 138.0 , person: 52, 1 -> 5
+Classtime switch at 145.0 , person: 44, 1 -> 2
+Classtime switch at 149.0 , person: 50, 6 -> 7
+Classtime switch at 159.0 , person: 16, 7 -> 6
+Classtime switch at 161.0 , person: 6, 9 -> 8
+Classtime switch at 167.0 , person: 79, 2 -> 5
+Breaktime switch at 171.0 , person: 76, 51 -> 27
+Breaktime switch at 175.0 , person: 36, 8 -> 24
+Breaktime switch at 175.0 , person: 37, 37 -> 24
+Breaktime switch at 176.0 , person: 73, 19 -> 16

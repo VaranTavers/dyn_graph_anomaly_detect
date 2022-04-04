@@ -243,12 +243,11 @@ function choose_iteration_best(graph, η, τ, iterations)
 end
 
 # ╔═╡ 8167196c-4a45-45f0-b55b-26b69f27904b
-function ACO(graph, vars::ACOSettings)
+function ACO(graph, vars::ACOSettings, τ)
 	#Set parameters and initialize pheromone traits.
 	n = nv(graph)
 	
 	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
-	τ = ones(n, n) .* vars.starting_pheromone_ammount # TODO set to relatively high
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
 	τ_max = vars.starting_pheromone_ammount
@@ -292,7 +291,23 @@ function ACO(graph, vars::ACOSettings)
 		τ = max.(τ, τ_min)
 
 	end
-	compute_solution(n, η, τ,sgb)
+	compute_solution(n, η, τ,sgb), τ
+end
+
+# ╔═╡ 8c6beaf2-f0e0-4d48-b593-06bcdba36455
+function ACO(graph, vars::ACOSettings)
+	n = nv(graph)
+	τ = ones(n, n) .* vars.starting_pheromone_ammount
+	r, _ = ACO(graph, vars, τ)
+
+	r
+end
+
+# ╔═╡ 0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
+function ACO_get_pheromone(graph, vars::ACOSettings)
+	n = nv(graph)
+	τ = ones(n, n) .* vars.starting_pheromone_ammount
+	ACO(graph, vars, τ)
 end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
@@ -838,6 +853,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
+# ╠═8c6beaf2-f0e0-4d48-b593-06bcdba36455
+# ╠═0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 # ╠═efdcdf7c-1135-4d05-bb47-8e8afe8cdf71
 # ╠═e902ccf1-6425-4c22-9a68-254acda90ce2

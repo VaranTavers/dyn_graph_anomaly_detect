@@ -31,7 +31,7 @@ function calc_sim(c_list, (com_i, c_list_i), (com_j, c_list_j))
 end
 
 # ╔═╡ 926c5c37-b87b-480e-b042-f89b7c4b456d
-function relabel_communities(c_list, p)
+function relabel_communities(c_list, p; changing=false)
 	ret = deepcopy(c_list)
 	communities = [1 for i in 1:maximum(c_list[1])]
 	
@@ -47,6 +47,9 @@ function relabel_communities(c_list, p)
 				append!(communities, i)
 			else
 				c[c .== c_i] .= max_score_index
+				if changing
+					communities[max_score_index] = i
+				end
 			end
 		end
 	end
@@ -177,7 +180,13 @@ function calculate_merging(communities_pred, size_lists, c_i)
 end
 
 # ╔═╡ 04037256-85ac-4064-96ed-c9183ff34b1f
+test_change_commnunities = [[1, 1, 1, 2, 2, 2], [1, 1, 1, 1, 2, 2], [2, 1, 1, 1, 1, 2], [2, 2, 1, 1, 1, 1]]
 
+# ╔═╡ 7c10c2f1-158a-4158-8467-a8be9574460a
+relabel_communities(test_change_commnunities, 0.6; changing=true)
+
+# ╔═╡ ee187301-524f-4452-be96-bd94e68aa4f9
+relabel_communities(test_change_commnunities, 0.6; changing=false)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -514,5 +523,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═85ef9af4-4397-47ca-8ecf-5d1aa9d2193d
 # ╠═cada7919-cfc6-46ae-a438-025dbef90b2a
 # ╠═04037256-85ac-4064-96ed-c9183ff34b1f
+# ╠═7c10c2f1-158a-4158-8467-a8be9574460a
+# ╠═ee187301-524f-4452-be96-bd94e68aa4f9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

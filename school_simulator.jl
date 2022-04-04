@@ -83,15 +83,28 @@ Time intervals in minutes:
 $(@bind δ_t Scrubbable(1:60))
 """
 
+# ╔═╡ 242aa867-9430-4920-9727-301194d134fa
+md"""
+Verbose logging $(@bind verbose CheckBox())
+"""
+
 # ╔═╡ 42688150-a3e3-4d2a-8c5e-c6620b4c43b0
 timetable = [shuffle(teacher_classes) for _ in 1:number_of_classes_per_day]
 
+# ╔═╡ 2a7b010e-603c-4d3b-a63b-76cfe44b5055
+function log!(log, string, i)
+	if verbose || i == 1
+		push!(log, string)
+	end
+end
+
 # ╔═╡ 7823c46b-3142-4606-a286-01a6defaf1b3
-function calculate_class_time!(mat, m, time)
+function calculate_class_time!(mat, logs, m, time)
 	if m <= number_of_people
 		class = people_classes[m]
 		if rand() < p_class_inter / 1000
 			class = rand(1:number_of_classes)
+			log!(logs, "Classtime switch at $(time) , person: $(m), $(people_classes[m]) -> $(class)", 1)
 		end
 		same_class = vcat(people_classes .== class, timetable[Int64(ceil(time / 60))] .== class)
 		mat[m, same_class] .+= 1
@@ -103,12 +116,12 @@ function calculate_class_time!(mat, m, time)
 end
 
 # ╔═╡ 8f47f326-14bb-4e35-a272-4ef23c35ff92
-function calculate_break_time!(mat, m, time)
+function calculate_break_time!(mat, logs, m, time)
 	if m <= number_of_people
 		group = people_groups[m]
-		if rand() < p_group_inter / 100
+		if rand() < p_group_inter / 1000
 			group = rand(1:number_of_friend_groups)
-			@show "Breaktime switch $(time) , $(m), $(people_groups[m]) -> $(group)"
+			log!(logs, "Breaktime switch at $(time) , person: $(m), $(people_groups[m]) -> $(group)", 1)
 		end
 		same_class = vcat(people_groups .== group, timetable[Int64(ceil(time / 60))] .== 9999)
 		mat[m, same_class] .+= 1
@@ -124,13 +137,25 @@ function create_interval(start_time, time_interval)
 	g = SimpleWeightedGraph(n)
 	
 	mat = zeros(n, n)
+	logs = []
+
+	log!(logs, string("Time: $start_time"), 0)
 	
-	for t in start_time:(start_time + time_interval)
+	for t in start_time:(start_time + time_interval - 1)
+		if verbose
+		log!(logs, "Time: $t", 0)
+		end
+		if t % 60 == 0
+			log!(logs, "Class time", 0)
+		end
+		if t % 60 == 50
+			log!(logs, "Break time", 0)
+		end
 		for m in 1:n
 			if t % 60 < 50
-				calculate_class_time!(mat, m, t)
+				calculate_class_time!(mat, logs, m, t)
 			else
-				calculate_break_time!(mat, m, t)
+				calculate_break_time!(mat, logs, m, t)
 			end
 		end
 	end
@@ -145,14 +170,26 @@ function create_interval(start_time, time_interval)
 		end
 	end
 
-	g
+	(g, logs)
 end
 
 # ╔═╡ 5b0f0db9-8ac1-41f2-8dec-7e5d3ba5a9bc
-graphs = Folds.map(i -> create_interval((i - 1) * δ_t + 1, δ_t), 1:(number_of_classes_per_day * 60 / δ_t - 1))
+graphs_logs = Folds.map(i -> create_interval((i - 1) * δ_t + 1, δ_t), 1:(number_of_classes_per_day * 60 / δ_t - 1))
+
+# ╔═╡ a6b34d7f-6255-4267-ae68-fbacc0884b05
+fst((a, _)) = a
+
+# ╔═╡ 7b59b387-0ba8-480f-8725-55e871c53806
+snd((_, b)) = b
+
+# ╔═╡ b362c1c8-b587-44ca-a4a9-7039a2d3f7bf
+
+
+# ╔═╡ 2a1c9c29-faaa-4f6d-8dea-b6315558872a
+logs = join(Iterators.flatten((snd.(graphs_logs))), "\n")
 
 # ╔═╡ 29fee730-866b-456a-b6c7-0e7c30c2152c
-@bind g_i Scrubbable(1:length(graphs))
+@bind g_i Scrubbable(1:length(graphs_logs))
 
 # ╔═╡ 0639a2cf-3181-407e-bac5-4969d679e851
 begin
@@ -160,7 +197,7 @@ begin
 	colors = distinguishable_colors(3)[2:end]
 	node_colors = [colors[i <= number_of_people ? 1 : 2] for i in 1:m]
 	nodelabel=collect(1:m)
-	gplot(graphs[g_i], nodesize=3, nodelabel=nodelabel, nodefillc=node_colors)
+	gplot(fst(graphs_logs[g_i]), nodesize=3, nodelabel=nodelabel, nodefillc=node_colors)
 end
 
 # ╔═╡ 265741e9-2057-49d3-9da3-792471414ba0
@@ -177,9 +214,20 @@ $(@bind go CheckBox()) Create
 # ╔═╡ 3abf3570-4de2-457b-9197-b15c3683c818
 begin
 	if go
-		for (i, g) in enumerate(graphs)
-		savegraph("dynamic_graphs/$(name)$(i).lgz", g)
-	end
+		for (i, g) in enumerate(graphs_logs)
+			savegraph("dynamic_graphs/$(name)$(i).lgz", fst(g))
+			open("logs/$(name).txt","w") do io
+				println(io, "Number of people $(number_of_people)")
+				println(io, "Number of classes $(number_of_classes)")
+				println(io, "Number of friend groups $(number_of_friend_groups)")
+				println(io, "Number of friend groups $(number_of_teachers)")
+				println(io, "Number of classes/day $(number_of_classes_per_day)")
+				println(io, "Ratio of interaction with other class, during class per 5 minutes (x / 1000): $(p_class_inter)")
+				println(io, "Ratio of interaction with other group, during break per minute (x / 1000): $(p_group_inter)")
+				println(io, "Time intervals in minutes: $(δ_t)")
+   				println(io,logs)
+			end
+		end
 	end
 end
 
@@ -654,15 +702,21 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─d2c3d71a-1548-417e-9264-acb852299443
 # ╟─39b4915b-57f8-4655-adc6-b3a3d3ae068d
 # ╟─a124a4c8-398b-4f6d-aa83-aaee916b7760
+# ╟─242aa867-9430-4920-9727-301194d134fa
 # ╠═42688150-a3e3-4d2a-8c5e-c6620b4c43b0
+# ╟─2a7b010e-603c-4d3b-a63b-76cfe44b5055
 # ╠═7823c46b-3142-4606-a286-01a6defaf1b3
 # ╠═8f47f326-14bb-4e35-a272-4ef23c35ff92
 # ╠═519686e3-2c3c-46b3-97b0-20077a42ead9
 # ╠═5b0f0db9-8ac1-41f2-8dec-7e5d3ba5a9bc
-# ╟─29fee730-866b-456a-b6c7-0e7c30c2152c
+# ╠═a6b34d7f-6255-4267-ae68-fbacc0884b05
+# ╠═7b59b387-0ba8-480f-8725-55e871c53806
+# ╠═b362c1c8-b587-44ca-a4a9-7039a2d3f7bf
+# ╠═2a1c9c29-faaa-4f6d-8dea-b6315558872a
+# ╠═29fee730-866b-456a-b6c7-0e7c30c2152c
 # ╠═0639a2cf-3181-407e-bac5-4969d679e851
 # ╟─265741e9-2057-49d3-9da3-792471414ba0
-# ╠═7b5b8370-bd48-4c5d-8ae1-20e694ae9591
+# ╟─7b5b8370-bd48-4c5d-8ae1-20e694ae9591
 # ╠═3abf3570-4de2-457b-9197-b15c3683c818
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

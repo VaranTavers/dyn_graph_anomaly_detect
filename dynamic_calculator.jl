@@ -46,7 +46,7 @@ end
 # ╔═╡ 102b3c2a-9506-4a59-8c8d-e38692e22742
 begin
 	implementation_jl = ingredients("./implementation.jl")
-	import .implementation_jl: ACO, calculate_modularity, ACOSettings, normalized_mutual_information
+	import .implementation_jl: ACO, calculate_modularity, ACOSettings, normalized_mutual_information, ACO_get_pheromone
 end
 
 # ╔═╡ 6df4dd31-d769-4336-a142-cdfd1585f29b
@@ -60,6 +60,16 @@ begin
 	node_func_jl = ingredients("./node_functions.jl")
 	import .node_func_jl: calculate_anomaly_vector_quantity, calculate_anomaly_vector_category, detect_change_anomaly_vector, detect_outlier_anomaly_vector
 end
+
+# ╔═╡ 2fb037ea-78c1-470c-8364-9a132825c126
+md"""
+Evolving communities: $(@bind evolve CheckBox())
+"""
+
+# ╔═╡ 326693d9-210c-457c-a251-bb1c2bbfc596
+md"""
+Continuous pheromones (may result in slowdowns): $(@bind continuous CheckBox())
+"""
 
 # ╔═╡ 3f4eb27b-8834-4997-8f8b-02d99250d2f8
 md"""
@@ -94,11 +104,23 @@ apply_aco(x) = ACO(x, vars)
 # ╔═╡ 27207be6-5031-4001-a98d-cb356b7ace68
 graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
 
+# ╔═╡ 9903f2b0-90a2-4847-a00f-f033d79e2a12
+function reducer_ACO((x, τ), g)
+	c2, τ_c = ACO(g, vars, τ)
+	push!(x, c2)
+	(x, τ_c)
+end
+
 # ╔═╡ f891fd6d-a77e-46bf-b677-e500459e4658
-communities_pred = Folds.map(apply_aco, graphs)
+if !continuous
+	communities_pred = Folds.map(apply_aco, graphs)
+else
+	c, τ_c = ACO_get_pheromone(graphs[1], vars::ACOSettings)
+	communities_pred = reduce(reducer_ACO, graphs[2:end], ([c], τ_c))
+end
 
 # ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
-communities_pred2 = relabel_communities(communities_pred, 0.6)
+communities_pred2 = relabel_communities(communities_pred, 0.6; changing=evolve)
 
 # ╔═╡ b09d6945-b3c9-482a-883f-c48126c36244
 matrix = mapreduce(permutedims, vcat, communities_pred2);
@@ -133,28 +155,39 @@ p_outlier = Folds.map(x -> detect_outlier_anomaly_vector(x, 5), point_anomaly)
 # ╔═╡ 075a11cc-395b-4d88-99a8-1d13c0bc1967
 p_change = Folds.map(x -> detect_change_anomaly_vector(x, 5), point_anomaly)
 
-# ╔═╡ 9b0d565b-7df2-475e-9aea-8c54a9b23519
-# TODO: Build a community database, if best fitting community is sufficiently different from it's ancestor, we may declare it as a new community.
-# TODO: Community evolution?
-
 # ╔═╡ 31c046f1-5b2b-4963-99a5-6ab4924cc487
 @bind g_i Scrubbable(1:length(graphs))
 
 # ╔═╡ df1bab46-1112-498d-961d-da9b45aa0461
 colors = distinguishable_colors(num_of_relabeled_communities + 1)
 
-# ╔═╡ 17e167af-485d-4069-b421-6cef0e84ac64
-nodefillc = colors[communities_pred2[g_i] .+ 1]
-
 # ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 begin
-	nodelabel = 1:nv(graphs[g_i])
-	layout=(args...)->spring_layout(args...; C=40)
-	plot = gplot(graphs[g_i], layout=layout, nodesize=3, nodelabel=nodelabel, nodefillc=nodefillc)
+	layout=(args...)->spring_layout(args...; C=10)
+	plots = [gplot(graphs[i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[i]), nodefillc=colors[communities_pred2[i] .+ 1]) for i in 1:length(graphs)];
+	1
 end
+
+# ╔═╡ 17e167af-485d-4069-b421-6cef0e84ac64
+colors[communities_pred2[g_i] .+ 1]
+
+# ╔═╡ e1432419-b674-4ae0-96a0-da9a74b842e3
+plots[g_i]
 
 # ╔═╡ 93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
 Threads.nthreads()
+
+# ╔═╡ a8eaceca-6283-4052-ad19-e183ae25748a
+[calculate_merging(communities_pred2, community_size_lists, i) for i in 1:num_of_relabeled_communities]
+
+# ╔═╡ 2ecd4c9d-c84d-4d37-b431-7113f3101f79
+md"""
+Chosen community:
+$(@bind c_chosen Scrubbable(1:num_of_relabeled_communities))
+"""
+
+# ╔═╡ b1ada24b-6218-49b9-8fed-f0f367170997
+findall(x-> x == c_chosen, communities_pred2[g_i])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -847,11 +880,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═102b3c2a-9506-4a59-8c8d-e38692e22742
 # ╠═6df4dd31-d769-4336-a142-cdfd1585f29b
 # ╠═467be1e9-1fe0-4f52-baeb-efb21c89c693
+# ╟─2fb037ea-78c1-470c-8364-9a132825c126
+# ╟─326693d9-210c-457c-a251-bb1c2bbfc596
 # ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
 # ╟─90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
 # ╠═2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
 # ╠═48509c7e-40cc-4930-967f-75f77c14701d
 # ╠═27207be6-5031-4001-a98d-cb356b7ace68
+# ╠═9903f2b0-90a2-4847-a00f-f033d79e2a12
 # ╠═f891fd6d-a77e-46bf-b677-e500459e4658
 # ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
 # ╠═b09d6945-b3c9-482a-883f-c48126c36244
@@ -864,11 +900,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═77e04068-4905-4edf-9c65-3f441c553bb8
 # ╠═86c6b192-0556-4b04-8335-0728a799b125
 # ╠═075a11cc-395b-4d88-99a8-1d13c0bc1967
-# ╠═9b0d565b-7df2-475e-9aea-8c54a9b23519
-# ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
+# ╟─31c046f1-5b2b-4963-99a5-6ab4924cc487
 # ╠═df1bab46-1112-498d-961d-da9b45aa0461
-# ╠═17e167af-485d-4069-b421-6cef0e84ac64
 # ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
+# ╠═17e167af-485d-4069-b421-6cef0e84ac64
+# ╠═e1432419-b674-4ae0-96a0-da9a74b842e3
 # ╠═93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
+# ╠═a8eaceca-6283-4052-ad19-e183ae25748a
+# ╠═2ecd4c9d-c84d-4d37-b431-7113f3101f79
+# ╠═b1ada24b-6218-49b9-8fed-f0f367170997
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
