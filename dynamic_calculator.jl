@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.17.4
 
 using Markdown
 using InteractiveUtils
@@ -105,7 +105,8 @@ apply_aco(x) = ACO(x, vars)
 graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
 
 # ╔═╡ 9903f2b0-90a2-4847-a00f-f033d79e2a12
-function reducer_ACO((x, τ), g)
+function reducer_ACO(X, g)
+	x, τ = X
 	c2, τ_c = ACO(g, vars, τ)
 	push!(x, c2)
 	(x, τ_c)
@@ -116,7 +117,7 @@ if !continuous
 	communities_pred = Folds.map(apply_aco, graphs)
 else
 	c, τ_c = ACO_get_pheromone(graphs[1], vars::ACOSettings)
-	communities_pred = reduce(reducer_ACO, graphs[2:end], ([c], τ_c))
+	communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
 end
 
 # ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
@@ -188,6 +189,11 @@ $(@bind c_chosen Scrubbable(1:num_of_relabeled_communities))
 
 # ╔═╡ b1ada24b-6218-49b9-8fed-f0f367170997
 findall(x-> x == c_chosen, communities_pred2[g_i])
+
+# ╔═╡ 878704e3-005a-4a67-9bed-977ba3bfbf96
+open("logs/continuous.txt","w") do io
+	println(io, matrix)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -882,8 +888,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═467be1e9-1fe0-4f52-baeb-efb21c89c693
 # ╟─2fb037ea-78c1-470c-8364-9a132825c126
 # ╟─326693d9-210c-457c-a251-bb1c2bbfc596
-# ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
-# ╟─90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
+# ╠═3f4eb27b-8834-4997-8f8b-02d99250d2f8
+# ╠═90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
 # ╠═2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
 # ╠═48509c7e-40cc-4930-967f-75f77c14701d
 # ╠═27207be6-5031-4001-a98d-cb356b7ace68
@@ -900,14 +906,15 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═77e04068-4905-4edf-9c65-3f441c553bb8
 # ╠═86c6b192-0556-4b04-8335-0728a799b125
 # ╠═075a11cc-395b-4d88-99a8-1d13c0bc1967
-# ╟─31c046f1-5b2b-4963-99a5-6ab4924cc487
+# ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
 # ╠═df1bab46-1112-498d-961d-da9b45aa0461
-# ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
+# ╟─9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 # ╠═17e167af-485d-4069-b421-6cef0e84ac64
 # ╠═e1432419-b674-4ae0-96a0-da9a74b842e3
 # ╠═93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
 # ╠═a8eaceca-6283-4052-ad19-e183ae25748a
 # ╠═2ecd4c9d-c84d-4d37-b431-7113f3101f79
 # ╠═b1ada24b-6218-49b9-8fed-f0f367170997
+# ╠═878704e3-005a-4a67-9bed-977ba3bfbf96
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
