@@ -40,7 +40,7 @@ $(@bind number_of_classes Scrubbable(2:15))
 # ╔═╡ 4b034fbb-32d2-4685-ade2-da91b86c0680
 md"""
 Number of friend groups:
-$(@bind number_of_friend_groups Scrubbable(10:100))
+$(@bind number_of_friend_groups Scrubbable(2:100))
 """
 
 # ╔═╡ b9ade87f-fd67-4996-84f2-ca2401081e4f
@@ -139,7 +139,7 @@ function calculate_break_time!(mat, logs, m, time)
 		same_group = vcat(people_groups .== group, timetable[Int64(ceil(time / 60))] .== 9999)
 		same_place = vcat(get_place(people_groups) .== get_place(group), timetable[Int64(ceil(time / 60))] .== 9999)
 		mat[m, same_place] .+= 1
-		mat[m, same_group] .+= 1
+		mat[m, same_group] .+= 2
 	else
 		same_group = vcat(people_classes .== 9999, timetable[Int64(ceil(time / 60))] .!= 9999)
 		mat[m, same_group] .+= 1

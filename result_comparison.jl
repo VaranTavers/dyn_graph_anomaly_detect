@@ -56,10 +56,10 @@ File two: $(@bind file2 FilePicker())
 """
 
 # ╔═╡ 967962e0-94af-4cef-8f32-b78b1b556497
-data1 = Matrix(DataFrame(CSV.File(IOBuffer(file1["data"]), header=false)))
+data1 = Matrix(DataFrame(CSV.File(IOBuffer(file1["data"]))))
 
 # ╔═╡ c68fd435-78fd-43c3-baff-0619ff1c542b
-data2 = Matrix(DataFrame(CSV.File(IOBuffer(file2["data"]), header=false)))
+data2 = Matrix(DataFrame(CSV.File(IOBuffer(file2["data"]))))
 
 # ╔═╡ d58c7247-d49f-4252-a909-316ce1e90c87
 number_of_communities = max(maximum(data1), maximum(data2))
@@ -74,6 +74,7 @@ colors = distinguishable_colors(number_of_communities + 1)
 begin
 	colors1 = colors[data1[g_i, :] .+ 1]
 	colors2 = colors[data2[g_i, :] .+ 1]
+	1
 end
 
 # ╔═╡ a211a084-12f1-42ca-ae39-0db20dcabb60
@@ -89,7 +90,10 @@ gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), node
 wrongs = data1[g_i, :] .!= data2[g_i, :]
 
 # ╔═╡ 72bd1dd2-5357-4a59-afbf-1da51208755c
-map(x -> (x, colors1[x], colors2[x]), collect(1:length(data1[g_i, :]))[wrongs])
+map(x -> (x, colors1[x], colors2[x], data1[g_i, x], data2[g_i, x]), collect(1:length(data1[g_i, :]))[wrongs])
+
+# ╔═╡ 9881bcea-04f4-4537-8e94-7399704dd1db
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -791,13 +795,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═967962e0-94af-4cef-8f32-b78b1b556497
 # ╠═c68fd435-78fd-43c3-baff-0619ff1c542b
 # ╠═d58c7247-d49f-4252-a909-316ce1e90c87
-# ╠═d59dd509-653b-4e03-be94-8efe6da2c9c7
-# ╠═f73c26dd-35ae-4264-880b-99ba1324663b
-# ╠═79b51f43-1dc9-42e8-833f-641b579bbef1
+# ╟─d59dd509-653b-4e03-be94-8efe6da2c9c7
+# ╟─f73c26dd-35ae-4264-880b-99ba1324663b
+# ╟─79b51f43-1dc9-42e8-833f-641b579bbef1
 # ╟─a211a084-12f1-42ca-ae39-0db20dcabb60
-# ╠═dc2a6211-bdf7-41e7-80d5-295f0b2687c9
-# ╠═392d4f0b-0239-4770-86a5-494ddd784266
+# ╟─dc2a6211-bdf7-41e7-80d5-295f0b2687c9
+# ╟─392d4f0b-0239-4770-86a5-494ddd784266
 # ╠═1ec50997-6d6d-4de0-933a-10a48974dd54
 # ╠═72bd1dd2-5357-4a59-afbf-1da51208755c
+# ╠═9881bcea-04f4-4537-8e94-7399704dd1db
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

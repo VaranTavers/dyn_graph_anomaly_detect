@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.17.4
 
 using Markdown
 using InteractiveUtils
@@ -167,14 +167,8 @@ end
 # Constructs a new solution
 function generate_s(graph, η, τ, vars::ACOSettings)
 	n = nv(graph)
-	s = zeros(Int32, n)
-
-	for i in 1:n
-		res = sample(calculate_probabilities(graph, η, τ, i, vars))
-		s[i] = res
-	end
-
-	s
+	
+	[sample(calculate_probabilities(graph, η, τ, i, vars)) for i in 1:n]
 end
 
 # ╔═╡ ca49cc0e-b106-4dff-ad64-0ae5a568920c

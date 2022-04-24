@@ -191,9 +191,7 @@ $(@bind c_chosen Scrubbable(1:num_of_relabeled_communities))
 findall(x-> x == c_chosen, communities_pred2[g_i])
 
 # ╔═╡ 878704e3-005a-4a67-9bed-977ba3bfbf96
-open("logs/continuous.txt","w") do io
-	println(io, matrix)
-end
+Tables.table(matrix) |> CSV.write("logs/simple.csv")
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -888,8 +886,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═467be1e9-1fe0-4f52-baeb-efb21c89c693
 # ╟─2fb037ea-78c1-470c-8364-9a132825c126
 # ╟─326693d9-210c-457c-a251-bb1c2bbfc596
-# ╠═3f4eb27b-8834-4997-8f8b-02d99250d2f8
-# ╠═90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
+# ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
+# ╟─90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
 # ╠═2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
 # ╠═48509c7e-40cc-4930-967f-75f77c14701d
 # ╠═27207be6-5031-4001-a98d-cb356b7ace68

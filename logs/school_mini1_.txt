@@ -1,0 +1,28 @@
+Number of people 10
+Number of classes 2
+Number of friend groups 3
+Number of friend groups 4
+Number of classes/day 3
+Ratio of interaction with other class, during class per 5 minutes (x / 1000): 5
+Ratio of interaction with other group, during break per minute (x / 1000): 10
+Time intervals in minutes: 5
+People-Class vector
+[2, 2, 1, 1, 2, 2, 1, 2, 1, 2]
+People-Group vector
+[3, 1, 3, 1, 1, 2, 1, 3, 3, 2]
+Group-place vector
+[1, 1, 1]
+Teacher timetable
+[[2, 0, 0, 1], [0, 0, 1, 2], [2, 0, 0, 1]]
+Classtime switch at 16.0 , person: 10, 2 -> 2
+Classtime switch at 38.0 , person: 5, 2 -> 1
+Classtime switch at 39.0 , person: 8, 2 -> 2
+Classtime switch at 74.0 , person: 8, 2 -> 1
+Classtime switch at 75.0 , person: 8, 2 -> 2
+Classtime switch at 80.0 , person: 10, 2 -> 1
+Classtime switch at 100.0 , person: 1, 2 -> 1
+Breaktime switch at 114.0 , person: 2, 1 -> 3
+Breaktime switch at 114.0 , person: 5, 1 -> 1
+Breaktime switch at 119.0 , person: 7, 1 -> 3
+Classtime switch at 153.0 , person: 2, 2 -> 1
+Breaktime switch at 173.0 , person: 5, 1 -> 2
