@@ -236,8 +236,82 @@ function choose_iteration_best(graph, η, τ, iterations)
 	(iterations[index], points[index])
 end
 
+# ╔═╡ bbf1563c-6b72-40b6-accc-197a36ebe5c7
+function get_combined_c(c, (c_dest, c_source))
+	r = copy(c)
+
+	r[r .== c_source] .= c_dest
+
+	r
+end
+
+# ╔═╡ 4beb6af6-1dde-46f7-8efb-85d16e305243
+function a_lt_b_not_empty(x, c)
+	(a, b) = x
+
+	if a >= b
+		return false
+	end
+
+	count(c .== a) != 0 && count(c .== b) != 0
+end
+
+# ╔═╡ e004a0f1-99b1-465f-89b3-6e1cc324f560
+function get_combined_result(g, c, x)
+	comb = get_combined_c(c, x)
+	val = calculate_modularity(g, comb)
+	(val, x, comb)
+end
+
+# ╔═╡ 18d6233b-b7ea-4707-9cfb-18e1a3b19b46
+function get_best_combination(graph, c)
+	n = maximum(c)
+
+	joins_mat = [(i, j) for i in 1:n for j in 1:n]
+	joins = filter(x -> a_lt_b_not_empty(x, c), joins_mat[:])
+
+	joins_modularities = Folds.map(x -> get_combined_result(graph, c, x), joins)
+
+	if length(joins_modularities) == 0
+		return c
+	end
+
+	best = argmax(joins_modularities)
+	@show joins_modularities
+	_, _, c_res = joins_modularities[best]
+	@show c_res
+
+	c_res
+end
+
+# ╔═╡ 165073f5-cc4e-4f6b-bab7-088a569c385d
+function number_of_communitites(c)
+	com_num = map(x -> count(c .== x), 1:maximum(c))
+
+	length(filter(x -> x > 0, com_num))
+end
+
+# ╔═╡ 4ee1d480-65b1-405c-8a21-7e88eed3fa92
+function reduce_number_of_communities(graph, c, n)
+	if n == 0
+		return c
+	end
+
+	iter = 0
+	p = deepcopy(c)
+	while number_of_communitites(p) > n && iter < 100
+		p = get_best_combination(graph, p)
+		iter += 1
+		if iter % 10 == 0
+			@show iter
+		end
+	end
+
+	p
+end
+
 # ╔═╡ 8167196c-4a45-45f0-b55b-26b69f27904b
-function ACO(graph, vars::ACOSettings, τ)
+function ACO(graph, vars::ACOSettings, τ; k = 0)
 	#Set parameters and initialize pheromone traits.
 	n = nv(graph)
 	
@@ -285,23 +359,24 @@ function ACO(graph, vars::ACOSettings, τ)
 		τ = max.(τ, τ_min)
 
 	end
-	compute_solution(n, η, τ,sgb), τ
+	
+	reduce_number_of_communities(graph, compute_solution(n, η, τ,sgb), k), τ
 end
 
 # ╔═╡ 8c6beaf2-f0e0-4d48-b593-06bcdba36455
-function ACO(graph, vars::ACOSettings)
+function ACO(graph, vars::ACOSettings; k = 0)
 	n = nv(graph)
 	τ = ones(n, n) .* vars.starting_pheromone_ammount
-	r, _ = ACO(graph, vars, τ)
+	r, _ = ACO(graph, vars, τ; k=k)
 
 	r
 end
 
 # ╔═╡ 0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
-function ACO_get_pheromone(graph, vars::ACOSettings)
+function ACO_get_pheromone(graph, vars::ACOSettings; k=0)
 	n = nv(graph)
 	τ = ones(n, n) .* vars.starting_pheromone_ammount
-	ACO(graph, vars, τ)
+	ACO(graph, vars, τ; k=k)
 end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
@@ -317,7 +392,7 @@ begin
 			100, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
-	c = ACO(g, vars)
+	c = ACO(g, vars; k=2)
 	@show c
 	calculate_modularity(g, c)
 	
@@ -846,6 +921,12 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═ca49cc0e-b106-4dff-ad64-0ae5a568920c
 # ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
+# ╠═bbf1563c-6b72-40b6-accc-197a36ebe5c7
+# ╠═4beb6af6-1dde-46f7-8efb-85d16e305243
+# ╠═e004a0f1-99b1-465f-89b3-6e1cc324f560
+# ╠═18d6233b-b7ea-4707-9cfb-18e1a3b19b46
+# ╠═165073f5-cc4e-4f6b-bab7-088a569c385d
+# ╠═4ee1d480-65b1-405c-8a21-7e88eed3fa92
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
 # ╠═8c6beaf2-f0e0-4d48-b593-06bcdba36455
 # ╠═0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
