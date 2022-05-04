@@ -34,10 +34,10 @@ function ingredients(path::String)
 	m
 end
 
-# ╔═╡ 4fe2b022-0312-42d1-9b63-3decc883edd6
+# ╔═╡ 8c7c002b-8df5-42a5-bbbb-ef542aa267d3
 begin
-	implementation_jl = ingredients("./implementation.jl")
-	import .implementation_jl: ACO, calculate_modularity, ACOSettings, normalized_mutual_information
+	implementation_jl = ingredients("./implementation_community.jl")
+	import .implementation_jl: CommunityACO, calculate_modularity, ACOSettings, normalized_mutual_information
 end
 
 # ╔═╡ 8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
@@ -67,7 +67,7 @@ md"""
 gz = loadgraph("graphs/zachary.lgz", SWGFormat())
 
 # ╔═╡ 56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
-cz = ACO(gz, vars)
+cz = CommunityACO(gz, vars)
 
 # ╔═╡ f91a1596-e030-4eab-81f9-1b3a5c851440
 mz = calculate_modularity(gz, cz)
@@ -83,7 +83,7 @@ The modularity is close to the one in the Chang Honghao Paper (0,420)
 gd = loadgraph("graphs/dolphins.lgz", SWGFormat())
 
 # ╔═╡ 22f24ab8-bb49-4593-a759-57d7f247a3ec
-cd = ACO(gd, vars)
+cd = CommunityACO(gd, vars)
 
 # ╔═╡ 1db6765a-1895-4d04-9883-fa69ce5dfd12
 m_d = calculate_modularity(gd, cd)
@@ -101,7 +101,7 @@ Runs in around 10 s
 gf = loadgraph("graphs/football.lgz", SWGFormat())
 
 # ╔═╡ 4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
-cf = ACO(gf, vars)
+cf = CommunityACO(gf, vars)
 
 # ╔═╡ 38b3a27e-c999-4562-81e6-39d1ea5426fe
 mf = calculate_modularity(gf, cf)
@@ -119,7 +119,7 @@ Runs in around 56s
 gb = loadgraph("graphs/books.lgz", SWGFormat())
 
 # ╔═╡ b10865d6-b996-443c-8fcb-a3534ccd970c
-cb = ACO(gb, vars)
+cb = CommunityACO(gb, vars)
 
 # ╔═╡ 84eef671-a5c7-44fc-83d1-a71ab6e195b0
 mb = calculate_modularity(gb, cb)
@@ -138,7 +138,7 @@ md"""
 """
 
 # ╔═╡ b93aaa88-2c61-4d4e-9437-6e6e02d7fcfa
-apply_aco(x) = ACO(x, vars)
+apply_aco(x) = CommunityACO(x, vars)
 
 # ╔═╡ 0bbc4ec9-4173-4a86-8252-29a3b9611b69
 apply_aco_multiple(x, n) = collect(Folds.map(_ -> apply_aco(x), zeros(n)))
@@ -172,7 +172,7 @@ begin
 end
 
 # ╔═╡ 94018f1f-7bb7-4b2f-b518-c2eeb6e5c195
-Threads.nthreads()
+[1:12 modularities nmis]
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -589,6 +589,12 @@ git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
 uuid = "c1c5ebd0-6772-5130-a774-d5fcae4a789d"
 version = "3.100.1+0"
 
+[[deps.LERC_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
+uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
+version = "3.0.0+1"
+
 [[deps.LZO_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "e5b909bcf985c5e2605737d2ce278ed791b89be6"
@@ -662,10 +668,10 @@ uuid = "4b2f31a3-9ecc-558c-b454-b3730dcb73e9"
 version = "2.35.0+0"
 
 [[deps.Libtiff_jll]]
-deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Pkg", "Zlib_jll", "Zstd_jll"]
-git-tree-sha1 = "340e257aada13f95f98ee352d316c3bed37c8ab9"
+deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "LERC_jll", "Libdl", "Pkg", "Zlib_jll", "Zstd_jll"]
+git-tree-sha1 = "c9551dd26e31ab17b86cbd00c2ede019c08758eb"
 uuid = "89763e89-9b03-5906-acba-b20f662cd828"
-version = "4.3.0+0"
+version = "4.3.0+1"
 
 [[deps.Libuuid_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -828,9 +834,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[deps.Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1262,7 +1268,7 @@ version = "0.9.1+5"
 # ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
 # ╠═93758c4d-8c46-4d65-865f-d79fc7262b12
-# ╠═4fe2b022-0312-42d1-9b63-3decc883edd6
+# ╠═8c7c002b-8df5-42a5-bbbb-ef542aa267d3
 # ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
 # ╠═8b130d9c-5712-45cb-8486-d07a1a98a894
 # ╟─fcebc348-7419-4055-aea2-58be96e065c8

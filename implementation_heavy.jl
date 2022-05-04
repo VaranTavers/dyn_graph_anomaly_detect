@@ -45,125 +45,66 @@ md"""
 ## Helper functions
 """
 
-# ╔═╡ 39bdd460-58de-4bcc-8237-12586b74a11b
-function logistic(x)
-	1 / (1 + exp(-x))
-end
-
-# ╔═╡ fefdd2c0-02a7-4db3-b868-f40c98373e1f
-# Kronecker delta function
-function δ(i, j)
-	if i == j
-		return 1
-	end
-	0
-end
-
 # ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 md"""
 ## Benchmark functinos
 """
 
-# ╔═╡ c88acc56-32a0-4209-aa92-eec60e1bbbe7
-md"""
-$A_{ij} - \frac{k_i * k_j}{2m}$
-"""
-
-# ╔═╡ bf2fe679-e748-4117-9425-c4285f0d729e
-function calculate_modularity_inner(graph, i, j)
-	m = ne(graph)
-	A_ij = has_edge(graph, i, j) ? 1 : 0
-	k_i = length(all_neighbors(graph, i))
-	k_j = length(all_neighbors(graph, j))
-
-	A_ij - (k_i * k_j) / 2m
+# ╔═╡ d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
+begin
+	fst((a, _)) = a
+	snd((_, b)) = b
 end
 
-# ╔═╡ 74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-function calculate_modularity(graph, c)
-	m = ne(graph)
-	n = nv(graph)
-
-	s = sum(Iterators.flatten([
-		[ calculate_modularity_inner(graph, i, j) * δ(c[i], c[j])
-		for j in 1:n] for i in 1:n]))
-
-	s / 2m
+# ╔═╡ 9f8e4f50-aa4f-48c4-a1c8-e027b0f43141
+begin
+	sf = SimpleWeightedGraph(4)
+	add_edge!(sf, 1, 2, 2)
+	collect(edges(sf))
 end
 
-# ╔═╡ 0d55705f-b656-4479-a7e9-5cbfef9063b3
-function community_entropy_inner(c, i)
-	n = length(c)
-	nx_i = count(x -> x == i, c)
-
-	nx_i * log(nx_i / n) / n
-end
-
-# ╔═╡ af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
-function community_entropy(c)
-	- sum([community_entropy_inner(c, i) for i in 1:maximum(c)])
-end
-
-# ╔═╡ 31115dfc-2898-431e-962a-588e854a05d8
-function mutual_information_inner(c1, c2, i, j)
-	n = length(c1)
-	z = zip(c1, c2)
-	nxy_ij = count(x -> x == (i, j), z)
-	nx_i = count(x -> x == i, c1)
-	ny_j = count(x -> x == j, c2)
-
-	if nxy_ij == 0
-		return 0
-	end
-	
-	nxy_ij * log((nxy_ij / n) / ((nx_i / n) * (ny_j / n))) / n
-end
-
-# ╔═╡ c833cd39-58a3-4a8c-8281-d8ec862a0314
-function mutual_information(c1, c2)
-	sum([sum([mutual_information_inner(c1, c2, i, j) for j in 1:maximum(c2)]) for i in 1:maximum(c1)])
-end
-
-# ╔═╡ b6b71f29-5929-4b1d-abb4-e182deb5c8b3
-function normalized_mutual_information(c1, c2)
-	2 * mutual_information(c1, c2) / (community_entropy(c1) + community_entropy(c2))
-end
-
-# ╔═╡ 8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-md"""
-## Pearson Corelation 
-"""
-
-# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
-md"""
-$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
-"""
-
-# ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
-function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
-	n = nv(graph)
-	
-	μ_i = sum(map(x -> graph.weights[i, x], 1:n)) / nv(graph)
-	μ_j = sum(map(x -> graph.weights[j, x], 1:n)) / nv(graph)
-	σ_i = sqrt(sum(map(x -> (graph.weights[i, x] - μ_i) ^ 2, 1:n)) / n)
-	σ_j = sqrt(sum(map(x -> (graph.weights[j, x] - μ_j) ^ 2, 1:n)) / n)
-
-	if σ_i * σ_j == 0
-		return -1
+# ╔═╡ 354866db-7344-462b-a7ce-711cc316cfcb
+function calculate_weight_sum_of_edges(graph, ei1, ei2)
+	g_edges = collect(edges(graph))
+	e1 = g_edges[ei1]
+	e2 = g_edges[ei2]
+	if e1.src == e2.src || e1.src == e2.dst || e1.dst == e2.src || e1.dst == e2.dst
+		return e1.weight + e2.weight
 	end
 
-	numerator = sum(
-		[(graph.weights[i, x] - μ_i) * (graph.weights[j, x] - μ_j) for x in 1:n]
-	)
-
-	numerator / (n * σ_i * σ_j)
+	0
 end
 
-# ╔═╡ 8df82f08-118b-406a-a0a4-c5699590f9df
+# ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
+function calculate_η(graph)
+	n = ne(graph)
+
+	η = [ i == j ? 0 : calculate_weight_sum_of_edges(graph, i, j) for i in 1:n, j in 1:n]
+
+	if minimum(η) < 0
+		η -= minimum(η)
+	end
+
+	η
+end
+
+# ╔═╡ b48ba4f0-f409-43c2-bde2-cb90acd5085d
+function calculate_heaviness(graph, c)
+	
+	number_of_communities = maximum(c)
+	g_edges = collect(edges(graph))
+	lengths = map(x -> g_edges[x].weight, 1:ne(graph))
+
+	weights_per_subg = [sum(lengths[c .== i]) for i in 1:number_of_communities]
+
+	maximum(weights_per_subg)
+end
+
+# ╔═╡ 705178d4-af4b-4104-a660-1de2ba77e81a
 # Built for bidirectional edges
 # Transforms the edge representation from generate_s to a community vector.
 function compute_solution(g, edges)
-	n = nv(g)
+	n = ne(g)
 	tmp_g = SimpleWeightedGraph(n)
 	for (a, b) in enumerate(edges)
 		add_edge!(tmp_g, a, b)
@@ -213,31 +154,28 @@ function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
 end
 
 # ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
-function CommunityACO(graph, vars_base::ACOSettings, τ; k=0)
-	n = nv(graph)
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+function HeaviestACO(graph, vars_base::ACOSettings, τ; k=0)
+	η = calculate_η(graph)
 
-	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
+	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 
 	ACO(graph, vars, η, τ; k)
 end
 
 # ╔═╡ 29da4832-6d05-4dfa-8be9-0dd01893ede1
-function CommunityACO(graph, vars_base::ACOSettings; k=0)
-	n = nv(graph)
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+function HeaviestACO(graph, vars_base::ACOSettings; k=0)
+	η = calculate_η(graph)
 
-	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
+	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 
 	ACO(graph, vars, η; k)
 end
 
 # ╔═╡ 72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
-function CommunityACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
-	n = nv(graph)
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+function HeaviestACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
+	η = calculate_η(graph)
 
-	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
+	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 	
 	CommunityACO(graph, vars, η, τ; k=k)
 end
@@ -255,28 +193,9 @@ begin
 			100, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
-	c = CommunityACO(g, vars)
+	c = HeaviestACO(g, vars)
 	@show c
-	calculate_modularity(g, c)
-	
-end
-
-# ╔═╡ 18788290-bc3a-4ef9-ae9b-9034957228f5
-begin
-	g2 = loadgraph("LFR/network6.lgz", SWGFormat())
-	
-	vars2 = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.9, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	@time c2 = CommunityACO(g2, vars2)
-	@show c2
-	calculate_modularity(g2, c2)
+	calculate_heaviness(g, c)
 	
 end
 
@@ -755,26 +674,17 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═db5b170a-f3f8-4667-a65c-1f3285d0275c
 # ╠═8fa16cd8-1735-4200-9ad0-4cdbe3e71c91
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
-# ╠═39bdd460-58de-4bcc-8237-12586b74a11b
-# ╠═fefdd2c0-02a7-4db3-b868-f40c98373e1f
 # ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
-# ╟─c88acc56-32a0-4209-aa92-eec60e1bbbe7
-# ╠═bf2fe679-e748-4117-9425-c4285f0d729e
-# ╠═74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-# ╠═0d55705f-b656-4479-a7e9-5cbfef9063b3
-# ╠═af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
-# ╠═31115dfc-2898-431e-962a-588e854a05d8
-# ╠═c833cd39-58a3-4a8c-8281-d8ec862a0314
-# ╠═b6b71f29-5929-4b1d-abb4-e182deb5c8b3
-# ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-# ╟─e66b3fe1-7979-4811-a349-4b027e112310
-# ╠═0bbaaf25-4633-4a82-859e-db81068d680a
-# ╠═8df82f08-118b-406a-a0a4-c5699590f9df
+# ╠═d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
+# ╠═9f8e4f50-aa4f-48c4-a1c8-e027b0f43141
+# ╠═354866db-7344-462b-a7ce-711cc316cfcb
+# ╠═a854518f-2b68-402c-a754-c20000504f0a
+# ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d
+# ╠═705178d4-af4b-4104-a660-1de2ba77e81a
 # ╠═4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
 # ╠═a42d4687-b1d2-4a9d-b882-7d648422a72c
 # ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
 # ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
-# ╠═18788290-bc3a-4ef9-ae9b-9034957228f5
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

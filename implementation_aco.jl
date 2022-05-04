@@ -14,15 +14,37 @@ begin
 	using Folds
 end
 
+# ╔═╡ d2c2971a-7160-4035-ad43-c6e7412ec249
+md"""
+## Imports
+"""
+
+# ╔═╡ d3349619-017d-4d16-aeae-6150f3533a39
+md"""
+## Structs
+"""
+
 # ╔═╡ c6cfd2c4-fa36-49b8-b054-5d198610c31d
 struct ACOSettings
-	α
-	β
-	number_of_ants
-	ρ
-	ϵ
-	max_number_of_iterations
-	starting_pheromone_ammount
+	α:: Real
+	β:: Real
+	number_of_ants:: Integer
+	ρ:: Real
+	ϵ:: Real
+	max_number_of_iterations:: Integer
+	starting_pheromone_ammount:: Real
+	eval_f:: Function
+	compute_solution:: Function
+	ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph) = new(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0)
+	ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s) = new(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s)
+end
+
+# ╔═╡ 8c158b69-41cb-422f-a7df-10f390792c8f
+mutable struct ACOInner
+	graph
+	n
+	η
+	τ
 end
 
 # ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
@@ -30,129 +52,24 @@ md"""
 ## Helper functions
 """
 
-# ╔═╡ 39bdd460-58de-4bcc-8237-12586b74a11b
-function logistic(x)
-	1 / (1 + exp(-x))
-end
-
-# ╔═╡ fefdd2c0-02a7-4db3-b868-f40c98373e1f
-# Kronecker delta function
-function δ(i, j)
-	if i == j
-		return 1
-	end
-	0
-end
-
 # ╔═╡ f60bc671-65a7-4335-8388-22535751d23b
 sample(weights) = findfirst(cumsum(weights) .> rand())
 
-# ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
+# ╔═╡ 78a41b8e-18a8-45f3-85a8-693fe2a0b1c2
+spread(inner::ACOInner) = inner.graph, inner.n, inner.η, inner.τ
+
+# ╔═╡ 42bee75a-7831-4214-9eed-251f6c699832
 md"""
-## Benchmark functinos
+## Solution generation functions
 """
-
-# ╔═╡ c88acc56-32a0-4209-aa92-eec60e1bbbe7
-md"""
-$A_{ij} - \frac{k_i * k_j}{2m}$
-"""
-
-# ╔═╡ bf2fe679-e748-4117-9425-c4285f0d729e
-function calculate_modularity_inner(graph, i, j)
-	m = ne(graph)
-	A_ij = has_edge(graph, i, j) ? 1 : 0
-	k_i = length(all_neighbors(graph, i))
-	k_j = length(all_neighbors(graph, j))
-
-	A_ij - (k_i * k_j) / 2m
-end
-
-# ╔═╡ 74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-function calculate_modularity(graph, c)
-	m = ne(graph)
-	n = nv(graph)
-
-	s = sum(Iterators.flatten([
-		[ calculate_modularity_inner(graph, i, j) * δ(c[i], c[j])
-		for j in 1:n] for i in 1:n]))
-
-	s / 2m
-end
-
-# ╔═╡ 0d55705f-b656-4479-a7e9-5cbfef9063b3
-function community_entropy_inner(c, i)
-	n = length(c)
-	nx_i = count(x -> x == i, c)
-
-	nx_i * log(nx_i / n) / n
-end
-
-# ╔═╡ af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
-function community_entropy(c)
-	- sum([community_entropy_inner(c, i) for i in 1:maximum(c)])
-end
-
-# ╔═╡ 31115dfc-2898-431e-962a-588e854a05d8
-function mutual_information_inner(c1, c2, i, j)
-	n = length(c1)
-	z = zip(c1, c2)
-	nxy_ij = count(x -> x == (i, j), z)
-	nx_i = count(x -> x == i, c1)
-	ny_j = count(x -> x == j, c2)
-
-	if nxy_ij == 0
-		return 0
-	end
-	
-	nxy_ij * log((nxy_ij / n) / ((nx_i / n) * (ny_j / n))) / n
-end
-
-# ╔═╡ c833cd39-58a3-4a8c-8281-d8ec862a0314
-function mutual_information(c1, c2)
-	sum([sum([mutual_information_inner(c1, c2, i, j) for j in 1:maximum(c2)]) for i in 1:maximum(c1)])
-end
-
-# ╔═╡ b6b71f29-5929-4b1d-abb4-e182deb5c8b3
-function normalized_mutual_information(c1, c2)
-	2 * mutual_information(c1, c2) / (community_entropy(c1) + community_entropy(c2))
-end
-
-# ╔═╡ 8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-md"""
-## Global settings for the Ant colony optimalization algorithm. 
-"""
-
-# ╔═╡ e66b3fe1-7979-4811-a349-4b027e112310
-md"""
-$C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\sigma_j}$
-"""
-
-# ╔═╡ 0bbaaf25-4633-4a82-859e-db81068d680a
-function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
-	n = nv(graph)
-	
-	μ_i = sum(map(x -> graph.weights[i, x], 1:n)) / nv(graph)
-	μ_j = sum(map(x -> graph.weights[j, x], 1:n)) / nv(graph)
-	σ_i = sqrt(sum(map(x -> (graph.weights[i, x] - μ_i) ^ 2, 1:n)) / n)
-	σ_j = sqrt(sum(map(x -> (graph.weights[j, x] - μ_j) ^ 2, 1:n)) / n)
-
-	if σ_i * σ_j == 0
-		return -1
-	end
-
-	numerator = sum(
-		[(graph.weights[i, x] - μ_i) * (graph.weights[j, x] - μ_j) for x in 1:n]
-	)
-
-	numerator / (n * σ_i * σ_j)
-end
 
 # ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
 # Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(graph, η, τ, i, vars::ACOSettings)
-	n = nv(graph)
+function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
+	graph, n, η, τ = spread(inner)
 
-	p = [(graph.weights[i,j] * τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
+	# graph.weights[i,j] * 
+	p = [(τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
 	if maximum(p) == 0
 		p[i] = 1
 	end
@@ -165,23 +82,24 @@ end
 
 # ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
 # Constructs a new solution
-function generate_s(graph, η, τ, vars::ACOSettings)
-	n = nv(graph)
+function generate_s(inner::ACOInner, vars::ACOSettings)
+	graph, n, η, τ = spread(inner)
 	
-	[sample(calculate_probabilities(graph, η, τ, i, vars)) for i in 1:n]
+	[sample(calculate_probabilities(inner, i, vars)) for i in 1:n]
 end
 
 # ╔═╡ ca49cc0e-b106-4dff-ad64-0ae5a568920c
 # Constructs a new solution
-function generate_s_avoid_duplicate(graph, η, τ, vars::ACOSettings)
-	n = nv(graph)
+function generate_s_avoid_duplicate(inner::ACOInner, vars::ACOSettings)
+	graph, n, η, τ = spread(inner)
+	
 	s = zeros(Int32, n)
 
 	for i in 1:n
 		j = 0
-		res = sample(calculate_probabilities(graph, η, τ, i, vars))
+		res = sample(calculate_probabilities(inner, i, vars))
 		while s[res] == i && j < 100
-			res = sample(calculate_probabilities(graph, η, τ, i, vars))
+			res = sample(calculate_probabilities(inner, i, vars))
 			j += 1
 		end
 		s[i] = res
@@ -190,51 +108,17 @@ function generate_s_avoid_duplicate(graph, η, τ, vars::ACOSettings)
 	s
 end
 
-# ╔═╡ 56269167-b380-4940-8278-adaa01356650
-# Built for bidirectional edges
-# Transforms the edge representation from generate_s to a community vector.
-function compute_solution(n, η, τ, edges)
-	tmp_g = SimpleWeightedGraph(n)
-	for (a, b) in enumerate(edges)
-		add_edge!(tmp_g, a, b)
-	end
-	
-	s = zeros(Int32, n)
-	start = 1
-	clust = 1
-	while start <= n
-		# Skip the points, which already have a community
-		while start <= n && s[start] != 0
-			start += 1
-		end
-		if start > n
-			break
-		end
-		# If we have found a point that has no community we check it has any neighbors. If it doesn't we don't assign it to a community. (it has no neighbors if it has an edge to itself)
-		if tmp_g.weights[start, start] == 0
-			s[start] = clust
-			for (j, v) in enumerate(dfs_parents(tmp_g, start))
-				if v > 0
-					s[j] = clust
-				end
-			end
-			clust += 1
-		else
-			start += 1
-		end
-	end
-	
-	s
-end
-
 # ╔═╡ aa8314fd-ab17-4e23-9e83-dc79a6f69209
-function choose_iteration_best(graph, η, τ, iterations)
-	n = nv(graph)
-	
-	points = Folds.map(x -> calculate_modularity(graph, compute_solution(n, η, τ, x)), iterations)
+function choose_iteration_best(inner::ACOInner, settings::ACOSettings, iterations)
+	points = Folds.map(x -> settings.eval_f(inner.graph, settings.compute_solution(inner.graph, x)), iterations)
 	index = argmax(points)
 	(iterations[index], points[index])
 end
+
+# ╔═╡ c94724e8-f634-4506-a605-8d2dd68f8b0b
+md"""
+## Combination functions
+"""
 
 # ╔═╡ bbf1563c-6b72-40b6-accc-197a36ebe5c7
 function get_combined_c(c, (c_dest, c_source))
@@ -257,20 +141,20 @@ function a_lt_b_not_empty(x, c)
 end
 
 # ╔═╡ e004a0f1-99b1-465f-89b3-6e1cc324f560
-function get_combined_result(g, c, x)
+function get_combined_result(g, eval_f, c, x)
 	comb = get_combined_c(c, x)
-	val = calculate_modularity(g, comb)
+	val = eval_f(g, comb)
 	(val, x, comb)
 end
 
 # ╔═╡ 18d6233b-b7ea-4707-9cfb-18e1a3b19b46
-function get_best_combination(graph, c)
+function get_best_combination(graph, eval_f, c)
 	n = maximum(c)
 
 	joins_mat = [(i, j) for i in 1:n for j in 1:n]
 	joins = filter(x -> a_lt_b_not_empty(x, c), joins_mat[:])
 
-	joins_modularities = Folds.map(x -> get_combined_result(graph, c, x), joins)
+	joins_modularities = Folds.map(x -> get_combined_result(graph, eval_f, c, x), joins)
 
 	if length(joins_modularities) == 0
 		return c
@@ -292,7 +176,7 @@ function number_of_communitites(c)
 end
 
 # ╔═╡ 4ee1d480-65b1-405c-8a21-7e88eed3fa92
-function reduce_number_of_communities(graph, c, n)
+function reduce_number_of_communities(graph, eval_f, c, n)
 	if n == 0
 		return c
 	end
@@ -300,7 +184,7 @@ function reduce_number_of_communities(graph, c, n)
 	iter = 0
 	p = deepcopy(c)
 	while number_of_communitites(p) > n && iter < 100
-		p = get_best_combination(graph, p)
+		p = get_best_combination(graph, eval_f, p)
 		iter += 1
 		if iter % 10 == 0
 			@show iter
@@ -310,12 +194,18 @@ function reduce_number_of_communities(graph, c, n)
 	p
 end
 
+# ╔═╡ 43b8516e-ee3f-4463-8f4c-e0f7947c6df8
+md"""
+## Main functions
+"""
+
 # ╔═╡ 8167196c-4a45-45f0-b55b-26b69f27904b
-function ACO(graph, vars::ACOSettings, τ; k = 0)
+function ACO(graph, vars::ACOSettings, η, τ; k = 0)
 	#Set parameters and initialize pheromone traits.
-	n = nv(graph)
+	n, _ = size(η)
+	inner = ACOInner(graph, n, η, τ)
 	
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+	
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
 	τ_max = vars.starting_pheromone_ammount
@@ -323,22 +213,15 @@ function ACO(graph, vars::ACOSettings, τ; k = 0)
 	
 	# While termination condition not met
 	for i in 1:vars.max_number_of_iterations
-		if i % 10 == 0
-			@show i
-		end
 		# Construct new solution s according to Eq. 2
 		if i % 3 < 2
-			S = Folds.map(x -> generate_s(graph, η, τ, vars), zeros(vars.number_of_ants))
+			S = Folds.map(x -> generate_s(inner, vars), zeros(vars.number_of_ants))
 		else
-			S = Folds.map(x -> generate_s_avoid_duplicate(graph, η, τ, vars), zeros(vars.number_of_ants))
+			S = Folds.map(x -> generate_s_avoid_duplicate(inner, vars), zeros(vars.number_of_ants))
 		end
-		#S = []
-		#for j in 1:vars.number_of_ants
-		#	append!(S, [generate_s(graph, η, τ, vars)])
-		#end
 
 		# Update iteration best
-		(sib, sib_val) = choose_iteration_best(graph, η, τ, S)
+		(sib, sib_val) = choose_iteration_best(inner, vars, S)
 		if sib_val > sgb_val
 			sgb_val = sib_val
 			sgb = sib
@@ -348,9 +231,10 @@ function ACO(graph, vars::ACOSettings, τ; k = 0)
 			τ_min = vars.ϵ * τ_max
 		end
 		# Update pheromone trails
+		# TODO: test with matrix sum
 		τ .*= vars.ρ
 		for (a, b) in enumerate(sib)
-			if sib[b] != a
+			if sib[b] != a || a < b
 				τ[a, b] += sib_val
 				τ[b, a] += sib_val
 			end
@@ -360,73 +244,24 @@ function ACO(graph, vars::ACOSettings, τ; k = 0)
 
 	end
 	
-	reduce_number_of_communities(graph, compute_solution(n, η, τ,sgb), k), τ
+	reduce_number_of_communities(graph, vars.eval_f, vars.compute_solution(inner.graph, sgb), k), τ
 end
 
 # ╔═╡ 8c6beaf2-f0e0-4d48-b593-06bcdba36455
-function ACO(graph, vars::ACOSettings; k = 0)
-	n = nv(graph)
+function ACO(graph, vars::ACOSettings, η; k = 0)
+	n, _ = size(η)
 	τ = ones(n, n) .* vars.starting_pheromone_ammount
-	r, _ = ACO(graph, vars, τ; k=k)
+	r, _ = ACO(graph, vars, η, τ; k=k)
 
 	r
 end
 
 # ╔═╡ 0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
-function ACO_get_pheromone(graph, vars::ACOSettings; k=0)
-	n = nv(graph)
+function ACO_get_pheromone(graph, vars::ACOSettings, η; k=0)
+	n, _ = size(η)
 	τ = ones(n, n) .* vars.starting_pheromone_ammount
-	ACO(graph, vars, τ; k=k)
+	ACO(graph, vars, η, τ; k=k)
 end
-
-# ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
-begin
-	g = loadgraph("graphs/changhonghao2013 (copy).lgz", SWGFormat())
-	
-	vars = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = ACO(g, vars; k=2)
-	@show c
-	calculate_modularity(g, c)
-	
-end
-
-# ╔═╡ efdcdf7c-1135-4d05-bb47-8e8afe8cdf71
-begin
-	g_k = loadgraph("LFR/network6.lgz", SWGFormat())
-	
-	vars_k = ACOSettings(
-			1, # α
-			1, # β
-			30, # number_of_ants
-			0.9, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			1000 # starting_pheromone_ammount
-		)
-end
-
-# ╔═╡ e902ccf1-6425-4c22-9a68-254acda90ce2
-c_real = CSV.read("LFR/community6.dat", DataFrame, header=false)[!, "Column1"]
-
-# ╔═╡ bb633985-27c1-4ca6-b257-68413af3cb0c
-# result = Folds.map(_ -> normalized_mutual_information(c_real, ACO(g_k, vars_k)), zeros(20))
-
-# ╔═╡ c7a357f4-bfc5-48b0-83dd-e41b757d226f
-# sum(result) / 20
-
-# ╔═╡ 4e097b12-082b-4a5c-aa7e-8648135012aa
-# normalized_mutual_information(c_real, ACO(g_k, vars_k))
-
-# ╔═╡ c2ba2d91-36e6-42d2-9b77-150e98614f93
-a = sample([0, 1, 0])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -898,44 +733,29 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
+# ╟─d2c2971a-7160-4035-ad43-c6e7412ec249
 # ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
+# ╟─d3349619-017d-4d16-aeae-6150f3533a39
 # ╠═c6cfd2c4-fa36-49b8-b054-5d198610c31d
+# ╠═8c158b69-41cb-422f-a7df-10f390792c8f
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
-# ╠═39bdd460-58de-4bcc-8237-12586b74a11b
-# ╠═fefdd2c0-02a7-4db3-b868-f40c98373e1f
 # ╠═f60bc671-65a7-4335-8388-22535751d23b
-# ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
-# ╟─c88acc56-32a0-4209-aa92-eec60e1bbbe7
-# ╠═bf2fe679-e748-4117-9425-c4285f0d729e
-# ╠═74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
-# ╠═0d55705f-b656-4479-a7e9-5cbfef9063b3
-# ╠═af25b3e3-fee0-4cf3-bbe9-8b5b7202926e
-# ╠═31115dfc-2898-431e-962a-588e854a05d8
-# ╠═c833cd39-58a3-4a8c-8281-d8ec862a0314
-# ╠═b6b71f29-5929-4b1d-abb4-e182deb5c8b3
-# ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
-# ╟─e66b3fe1-7979-4811-a349-4b027e112310
-# ╠═0bbaaf25-4633-4a82-859e-db81068d680a
+# ╠═78a41b8e-18a8-45f3-85a8-693fe2a0b1c2
+# ╟─42bee75a-7831-4214-9eed-251f6c699832
 # ╠═adaaeb50-f117-45ff-934b-890be5e972fe
 # ╠═467549ca-519a-4a84-98e7-9e78d93342a2
 # ╠═ca49cc0e-b106-4dff-ad64-0ae5a568920c
-# ╠═56269167-b380-4940-8278-adaa01356650
 # ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
+# ╟─c94724e8-f634-4506-a605-8d2dd68f8b0b
 # ╠═bbf1563c-6b72-40b6-accc-197a36ebe5c7
 # ╠═4beb6af6-1dde-46f7-8efb-85d16e305243
 # ╠═e004a0f1-99b1-465f-89b3-6e1cc324f560
 # ╠═18d6233b-b7ea-4707-9cfb-18e1a3b19b46
 # ╠═165073f5-cc4e-4f6b-bab7-088a569c385d
 # ╠═4ee1d480-65b1-405c-8a21-7e88eed3fa92
+# ╟─43b8516e-ee3f-4463-8f4c-e0f7947c6df8
 # ╠═8167196c-4a45-45f0-b55b-26b69f27904b
 # ╠═8c6beaf2-f0e0-4d48-b593-06bcdba36455
 # ╠═0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
-# ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
-# ╠═efdcdf7c-1135-4d05-bb47-8e8afe8cdf71
-# ╠═e902ccf1-6425-4c22-9a68-254acda90ce2
-# ╠═bb633985-27c1-4ca6-b257-68413af3cb0c
-# ╠═c7a357f4-bfc5-48b0-83dd-e41b757d226f
-# ╠═4e097b12-082b-4a5c-aa7e-8648135012aa
-# ╠═c2ba2d91-36e6-42d2-9b77-150e98614f93
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
