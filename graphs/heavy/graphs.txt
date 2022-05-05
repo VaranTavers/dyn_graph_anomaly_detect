@@ -1,0 +1,3 @@
+changhonghao	- Same graph that is used in the paper, but some weights are changed to -1.0, so the heaviest subgraph is 17
+changhonghao2	- Same graph, but now the three components are separated by a negative edge, ideally the algorithm should produce 19 as the answer.
+changhonghao3	- Same graph but added one more vertex to the 10-12 clique, and the 5-9 cluque is all negative, ideally the algorithm should produce 9 as the answer

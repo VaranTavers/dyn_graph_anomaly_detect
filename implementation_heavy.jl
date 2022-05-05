@@ -67,22 +67,28 @@ end
 function calculate_weight_sum_of_edges(graph, ei1, ei2)
 	g_edges = collect(edges(graph))
 	e1 = g_edges[ei1]
+	
+	if ei1 == ei2
+		return abs(e1.weight)
+	end
+	
 	e2 = g_edges[ei2]
 	if e1.src == e2.src || e1.src == e2.dst || e1.dst == e2.src || e1.dst == e2.dst
-		return e1.weight + e2.weight
+		return abs(e1.weight + e2.weight)
 	end
 
-	0
+	return 0
 end
 
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
 function calculate_η(graph)
 	n = ne(graph)
 
-	η = [ i == j ? 0 : calculate_weight_sum_of_edges(graph, i, j) for i in 1:n, j in 1:n]
+	η = [ calculate_weight_sum_of_edges(graph, i, j) for i in 1:n, j in 1:n]
 
-	if minimum(η) < 0
-		η -= minimum(η)
+	weights = map(x -> x.weight, edges(graph))
+	if minimum(weights) < 0
+		η .-= minimum(weights)
 	end
 
 	η
@@ -182,7 +188,7 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("graphs/changhonghao2013 (copy).lgz", SWGFormat())
+	g = loadgraph("graphs/heavy/changhonghao3.lgz", SWGFormat())
 	
 	vars = ACOSettings(
 			1, # α
