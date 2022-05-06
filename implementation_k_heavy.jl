@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.17.4
 
 using Markdown
 using InteractiveUtils
@@ -74,10 +74,10 @@ end
 # ╔═╡ 7e986200-7274-4be5-9b18-3a0b84b570af
 # Constructs a new solution
 function generate_s(inner::ACOInner, vars::ACOKSettings)
-	i = rand(Int64, 1:inner.n)
-	points = zeros(vars.k)
-	points[1] = point
-	for i in 2:k
+	i = rand(1:inner.n)
+	points = zeros(Int64, vars.k)
+	points[1] = i
+	for i in 2:vars.k
 		points[i] = sample(calculate_probabilities(inner, points[i - 1], vars.acos))
 	end
 
@@ -102,32 +102,14 @@ begin
 	snd((_, b)) = b
 end
 
-# ╔═╡ 354866db-7344-462b-a7ce-711cc316cfcb
-function calculate_weight_sum_of_edges(graph, ei1, ei2)
-	g_edges = collect(edges(graph))
-	e1 = g_edges[ei1]
-	
-	if ei1 == ei2
-		return abs(e1.weight)
-	end
-	
-	e2 = g_edges[ei2]
-	if e1.src == e2.src || e1.src == e2.dst || e1.dst == e2.src || e1.dst == e2.dst
-		return abs(e1.weight + e2.weight)
-	end
-
-	return 0
-end
-
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
 function calculate_η(graph)
 	n = nv(graph)
 
 	η = [ graph.weights[i, j] for i in 1:n, j in 1:n]
 
-	weights = map(x -> x.weight, edges(graph))
-	if minimum(weights) < 0
-		η .-= minimum(weights)
+	if minimum(graph.weights) < 0
+		η .-= minimum(graph.weights)
 	end
 
 	η
@@ -137,7 +119,6 @@ end
 function calculate_heaviness(graph, c)
 	w_sum = 0
 
-	edges = collect(edges(graph))
 	for i in 1:(length(c) - 1)
 		w_sum += graph.weights[c[i], c[i + 1]]
 	end
@@ -150,51 +131,115 @@ function compute_solution(g, s)
 	s
 end
 
+# ╔═╡ c9c59dc9-ecf6-4442-a867-a8c63120b382
+function ACOK(graph, vars::ACOKSettings, η, τ)
+	#Set parameters and initialize pheromone traits.
+	n, _ = size(η)
+	inner = ACOInner(graph, n, η, τ)
+	
+	
+	sgb = [i for i in 1:n]
+	sgb_val = -1000
+	τ_max = vars.acos.starting_pheromone_ammount
+	τ_min = 0
+	
+	# While termination condition not met
+	for i in 1:vars.acos.max_number_of_iterations
+		# Construct new solution s according to Eq. 2
+		
+		S = Folds.map(x -> generate_s(inner, vars), zeros(vars.acos.number_of_ants))
+
+		# Update iteration best
+		(sib, sib_val) = choose_iteration_best(inner, vars.acos, S)
+		if sib_val > sgb_val
+			sgb_val = sib_val
+			sgb = sib
+			
+			# Compute pheromone trail limits
+			τ_max = sgb_val / (1 - vars.acos.ρ)
+			τ_min = vars.acos.ϵ * τ_max
+		end
+		# Update pheromone trails
+		# TODO: test with matrix sum
+		τ .*= vars.acos.ρ
+		for (a, b) in zip(sib, sib[2:end])
+			τ[a, b] += sib_val
+			τ[b, a] += sib_val
+
+		end
+		τ = min.(τ, τ_max)
+		τ = max.(τ, τ_min)
+
+	end
+	
+	vars.acos.compute_solution(inner.graph, sgb), τ
+end
+
+# ╔═╡ 7abb51b8-f103-4e18-b929-df1d7e22f70b
+function ACOK(graph, vars::ACOKSettings, η)
+	n, _ = size(η)
+	τ = ones(n, n) .* vars.acos.starting_pheromone_ammount
+	r, _ = ACOK(graph, vars, η, τ)
+
+	r
+end
+
+
+# ╔═╡ bf725344-ae9a-41e7-8378-90be50e04b2b
+function ACOK_get_pheromone(graph, vars::ACOKSettings, η)
+	n, _ = size(η)
+	τ = ones(n, n) .* vars.acos.starting_pheromone_ammount
+	ACOK(graph, vars, η, τ)
+end
+
 # ╔═╡ 4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
-function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
-	ACOSettings(
-		vars_base.α,
-		vars_base.β,
-		vars_base.number_of_ants,
-		vars_base.ρ,
-		vars_base.ϵ,
-		vars_base.max_number_of_iterations,
-		vars_base.starting_pheromone_ammount,
-		eval_f,
-		c_s
+function copy_replace_funcs(vars_base::ACOKSettings, eval_f, c_s)
+	ACOKSettings(
+		ACOSettings(
+			vars_base.acos.α,
+			vars_base.acos.β,
+			vars_base.acos.number_of_ants,
+			vars_base.acos.ρ,
+			vars_base.acos.ϵ,
+			vars_base.acos.max_number_of_iterations,
+			vars_base.acos.starting_pheromone_ammount,
+			eval_f,
+			c_s
+		),
+		vars_base.k
 	)
 end
 
 # ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
-function HeaviestACO(graph, vars_base::ACOSettings, τ; k=0)
+function HeaviestACOK(graph, vars_base::ACOKSettings, τ)
 	η = calculate_η(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 
-	ACO(graph, vars, η, τ; k)
+	ACOK(graph, vars, η, τ)
 end
 
 # ╔═╡ 29da4832-6d05-4dfa-8be9-0dd01893ede1
-function HeaviestACO(graph, vars_base::ACOSettings; k=0)
+function HeaviestACOK(graph, vars_base::ACOKSettings)
 	η = calculate_η(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 
-	ACO(graph, vars, η; k)
+	ACOK(graph, vars, η)
 end
 
 # ╔═╡ 72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
-function HeaviestACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
+function HeaviestACOK_get_pheromone(graph, vars_base::ACOKSettings)
 	η = calculate_η(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 	
-	CommunityACO(graph, vars, η, τ; k=k)
+	HeaviestACOK(graph, vars, η, τ)
 end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("graphs/heavy/changhonghao3.lgz", SWGFormat())
+	g = loadgraph("graphs/heavy/changhonghao2.lgz", SWGFormat())
 	
 	vars = ACOSettings(
 			1, # α
@@ -205,7 +250,7 @@ begin
 			100, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
-	c = HeaviestACO(g, vars)
+	c = HeaviestACOK(g, ACOKSettings(vars, 18))
 	@show c
 	calculate_heaviness(g, c)
 	
@@ -692,10 +737,12 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═6da30365-bb02-47fc-a812-b1f3571a909e
 # ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╠═d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
-# ╠═354866db-7344-462b-a7ce-711cc316cfcb
 # ╠═a854518f-2b68-402c-a754-c20000504f0a
 # ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d
 # ╠═705178d4-af4b-4104-a660-1de2ba77e81a
+# ╠═c9c59dc9-ecf6-4442-a867-a8c63120b382
+# ╠═7abb51b8-f103-4e18-b929-df1d7e22f70b
+# ╠═bf725344-ae9a-41e7-8378-90be50e04b2b
 # ╠═4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
 # ╠═a42d4687-b1d2-4a9d-b882-7d648422a72c
 # ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
