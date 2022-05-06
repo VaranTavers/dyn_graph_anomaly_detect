@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -54,13 +54,6 @@ md"""
 begin
 	fst((a, _)) = a
 	snd((_, b)) = b
-end
-
-# ╔═╡ 9f8e4f50-aa4f-48c4-a1c8-e027b0f43141
-begin
-	sf = SimpleWeightedGraph(4)
-	add_edge!(sf, 1, 2, 2)
-	collect(edges(sf))
 end
 
 # ╔═╡ 354866db-7344-462b-a7ce-711cc316cfcb
@@ -682,7 +675,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
 # ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╠═d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
-# ╠═9f8e4f50-aa4f-48c4-a1c8-e027b0f43141
 # ╠═354866db-7344-462b-a7ce-711cc316cfcb
 # ╠═a854518f-2b68-402c-a754-c20000504f0a
 # ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d

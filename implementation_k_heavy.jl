@@ -14,56 +14,47 @@ begin
 	using Folds
 end
 
-# ╔═╡ d2c2971a-7160-4035-ad43-c6e7412ec249
+# ╔═╡ d8470914-6064-43a2-9dec-e32302b0fb80
 md"""
 ## Imports
 """
 
-# ╔═╡ d3349619-017d-4d16-aeae-6150f3533a39
-md"""
-## Structs
-"""
-
-# ╔═╡ c6cfd2c4-fa36-49b8-b054-5d198610c31d
-struct ACOSettings
-	α:: Real
-	β:: Real
-	number_of_ants:: Integer
-	ρ:: Real
-	ϵ:: Real
-	max_number_of_iterations:: Integer
-	starting_pheromone_ammount:: Real
-	eval_f:: Function
-	compute_solution:: Function
-	ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph) = new(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0)
-	ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s) = new(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s)
+# ╔═╡ db5b170a-f3f8-4667-a65c-1f3285d0275c
+function ingredients(path::String)
+	# this is from the Julia source code (evalfile in base/loading.jl)
+	# but with the modification that it returns the module instead of the last object
+	name = Symbol(basename(path))
+	m = Module(name)
+	Core.eval(m,
+        Expr(:toplevel,
+             :(eval(x) = $(Expr(:core, :eval))($name, x)),
+             :(include(x) = $(Expr(:top, :include))($name, x)),
+             :(include(mapexpr::Function, x) = $(Expr(:top, :include))(mapexpr, $name, x)),
+             :(include($path))))
+	m
 end
 
-# ╔═╡ 8c158b69-41cb-422f-a7df-10f390792c8f
-mutable struct ACOInner
-	graph
-	n
-	η
-	τ
+# ╔═╡ 8fa16cd8-1735-4200-9ad0-4cdbe3e71c91
+begin
+	implementation_jl = ingredients("./implementation_aco.jl")
+	import .implementation_jl: sample, ACOSettings, ACOInner, spread
+end
+
+# ╔═╡ c9d3fbd8-773f-43ab-bd54-d36c2d16a525
+struct ACOKSettings 
+	acos:: ACOSettings
+	k:: Real
+	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, k) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0), k)
+	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s, k) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s), k)
+	ACOKSettings(acos, k) = new(acos, k)
 end
 
 # ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
 md"""
-## Helper functions
+## Solution generator functions
 """
 
-# ╔═╡ f60bc671-65a7-4335-8388-22535751d23b
-sample(weights) = findfirst(cumsum(weights) .> rand())
-
-# ╔═╡ 78a41b8e-18a8-45f3-85a8-693fe2a0b1c2
-spread(inner::ACOInner) = inner.graph, inner.n, inner.η, inner.τ
-
-# ╔═╡ 42bee75a-7831-4214-9eed-251f6c699832
-md"""
-## Solution generation functions
-"""
-
-# ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
+# ╔═╡ 0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
 # Calculates the probabilities of choosing edges to add to the solution.
 function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
 	graph, n, η, τ = spread(inner)
@@ -80,187 +71,144 @@ function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
 	p
 end
 
-# ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
+# ╔═╡ 7e986200-7274-4be5-9b18-3a0b84b570af
 # Constructs a new solution
-function generate_s(inner::ACOInner, vars::ACOSettings)
-	graph, n, η, τ = spread(inner)
-	
-	[sample(calculate_probabilities(inner, i, vars)) for i in 1:n]
-end
-
-# ╔═╡ ca49cc0e-b106-4dff-ad64-0ae5a568920c
-# Constructs a new solution
-function generate_s_avoid_duplicate(inner::ACOInner, vars::ACOSettings)
-	graph, n, η, τ = spread(inner)
-	
-	s = zeros(Int32, n)
-
-	for i in 1:n
-		j = 0
-		res = sample(calculate_probabilities(inner, i, vars))
-		while s[res] == i && j < 100
-			res = sample(calculate_probabilities(inner, i, vars))
-			j += 1
-		end
-		s[i] = res
+function generate_s(inner::ACOInner, vars::ACOKSettings)
+	i = rand(Int64, 1:inner.n)
+	points = zeros(vars.k)
+	points[1] = point
+	for i in 2:k
+		points[i] = sample(calculate_probabilities(inner, points[i - 1], vars.acos))
 	end
 
-	s
+	points
 end
 
-# ╔═╡ aa8314fd-ab17-4e23-9e83-dc79a6f69209
+# ╔═╡ 6da30365-bb02-47fc-a812-b1f3571a909e
 function choose_iteration_best(inner::ACOInner, settings::ACOSettings, iterations)
 	points = Folds.map(x -> settings.eval_f(inner.graph, settings.compute_solution(inner.graph, x)), iterations)
 	index = argmax(points)
 	(iterations[index], points[index])
 end
 
-# ╔═╡ c94724e8-f634-4506-a605-8d2dd68f8b0b
+# ╔═╡ f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 md"""
-## Combination functions
+## Benchmark functinos
 """
 
-# ╔═╡ bbf1563c-6b72-40b6-accc-197a36ebe5c7
-function get_combined_c(c, (c_dest, c_source))
-	r = copy(c)
-
-	r[r .== c_source] .= c_dest
-
-	r
+# ╔═╡ d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
+begin
+	fst((a, _)) = a
+	snd((_, b)) = b
 end
 
-# ╔═╡ 4beb6af6-1dde-46f7-8efb-85d16e305243
-function a_lt_b_not_empty(x, c)
-	(a, b) = x
-
-	if a >= b
-		return false
-	end
-
-	count(c .== a) != 0 && count(c .== b) != 0
-end
-
-# ╔═╡ e004a0f1-99b1-465f-89b3-6e1cc324f560
-function get_combined_result(g, eval_f, c, x)
-	comb = get_combined_c(c, x)
-	val = eval_f(g, comb)
-	(val, x, comb)
-end
-
-# ╔═╡ 18d6233b-b7ea-4707-9cfb-18e1a3b19b46
-function get_best_combination(graph, eval_f, c)
-	n = maximum(c)
-
-	joins_mat = [(i, j) for i in 1:n for j in 1:n]
-	joins = filter(x -> a_lt_b_not_empty(x, c), joins_mat[:])
-
-	joins_modularities = Folds.map(x -> get_combined_result(graph, eval_f, c, x), joins)
-
-	if length(joins_modularities) == 0
-		return c
-	end
-
-	best = argmax(joins_modularities)
-	@show joins_modularities
-	_, _, c_res = joins_modularities[best]
-	@show c_res
-
-	c_res
-end
-
-# ╔═╡ 165073f5-cc4e-4f6b-bab7-088a569c385d
-function number_of_communitites(c)
-	com_num = map(x -> count(c .== x), 1:maximum(c))
-
-	length(filter(x -> x > 0, com_num))
-end
-
-# ╔═╡ 4ee1d480-65b1-405c-8a21-7e88eed3fa92
-function reduce_number_of_communities(graph, eval_f, c, n)
-	if n == 0
-		return c
-	end
-
-	iter = 0
-	p = deepcopy(c)
-	while number_of_communitites(p) > n && iter < 100
-		p = get_best_combination(graph, eval_f, p)
-		iter += 1
-		if iter % 10 == 0
-			@show iter
-		end
-	end
-
-	p
-end
-
-# ╔═╡ 43b8516e-ee3f-4463-8f4c-e0f7947c6df8
-md"""
-## Main functions
-"""
-
-# ╔═╡ 8167196c-4a45-45f0-b55b-26b69f27904b
-function ACO(graph, vars::ACOSettings, η, τ; k = 0)
-	#Set parameters and initialize pheromone traits.
-	n, _ = size(η)
-	inner = ACOInner(graph, n, η, τ)
+# ╔═╡ 354866db-7344-462b-a7ce-711cc316cfcb
+function calculate_weight_sum_of_edges(graph, ei1, ei2)
+	g_edges = collect(edges(graph))
+	e1 = g_edges[ei1]
 	
-	
-	sgb = [i for i in 1:n]
-	sgb_val = -1000
-	τ_max = vars.starting_pheromone_ammount
-	τ_min = 0
-	
-	# While termination condition not met
-	for i in 1:vars.max_number_of_iterations
-		# Construct new solution s according to Eq. 2
-		if i % 3 < 2
-			S = Folds.map(x -> generate_s(inner, vars), zeros(vars.number_of_ants))
-		else
-			S = Folds.map(x -> generate_s_avoid_duplicate(inner, vars), zeros(vars.number_of_ants))
-		end
-
-		# Update iteration best
-		(sib, sib_val) = choose_iteration_best(inner, vars, S)
-		if sib_val > sgb_val
-			sgb_val = sib_val
-			sgb = sib
-			
-			# Compute pheromone trail limits
-			τ_max = sgb_val / (1 - vars.ρ)
-			τ_min = vars.ϵ * τ_max
-		end
-		# Update pheromone trails
-		# TODO: test with matrix sum
-		τ .*= vars.ρ
-		for (a, b) in enumerate(sib)
-			if sib[b] != a || a < b
-				τ[a, b] += sib_val
-				τ[b, a] += sib_val
-			end
-		end
-		τ = min.(τ, τ_max)
-		τ = max.(τ, τ_min)
-
+	if ei1 == ei2
+		return abs(e1.weight)
 	end
 	
-	reduce_number_of_communities(graph, vars.eval_f, vars.compute_solution(inner.graph, sgb), k), τ
+	e2 = g_edges[ei2]
+	if e1.src == e2.src || e1.src == e2.dst || e1.dst == e2.src || e1.dst == e2.dst
+		return abs(e1.weight + e2.weight)
+	end
+
+	return 0
 end
 
-# ╔═╡ 8c6beaf2-f0e0-4d48-b593-06bcdba36455
-function ACO(graph, vars::ACOSettings, η; k = 0)
-	n, _ = size(η)
-	τ = ones(n, n) .* vars.starting_pheromone_ammount
-	r, _ = ACO(graph, vars, η, τ; k=k)
+# ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
+function calculate_η(graph)
+	n = nv(graph)
 
-	r
+	η = [ graph.weights[i, j] for i in 1:n, j in 1:n]
+
+	weights = map(x -> x.weight, edges(graph))
+	if minimum(weights) < 0
+		η .-= minimum(weights)
+	end
+
+	η
 end
 
-# ╔═╡ 0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
-function ACO_get_pheromone(graph, vars::ACOSettings, η; k=0)
-	n, _ = size(η)
-	τ = ones(n, n) .* vars.starting_pheromone_ammount
-	ACO(graph, vars, η, τ; k=k)
+# ╔═╡ b48ba4f0-f409-43c2-bde2-cb90acd5085d
+function calculate_heaviness(graph, c)
+	w_sum = 0
+
+	edges = collect(edges(graph))
+	for i in 1:(length(c) - 1)
+		w_sum += graph.weights[c[i], c[i + 1]]
+	end
+	
+	w_sum
+end
+
+# ╔═╡ 705178d4-af4b-4104-a660-1de2ba77e81a
+function compute_solution(g, s)
+	s
+end
+
+# ╔═╡ 4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
+function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
+	ACOSettings(
+		vars_base.α,
+		vars_base.β,
+		vars_base.number_of_ants,
+		vars_base.ρ,
+		vars_base.ϵ,
+		vars_base.max_number_of_iterations,
+		vars_base.starting_pheromone_ammount,
+		eval_f,
+		c_s
+	)
+end
+
+# ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
+function HeaviestACO(graph, vars_base::ACOSettings, τ; k=0)
+	η = calculate_η(graph)
+
+	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
+
+	ACO(graph, vars, η, τ; k)
+end
+
+# ╔═╡ 29da4832-6d05-4dfa-8be9-0dd01893ede1
+function HeaviestACO(graph, vars_base::ACOSettings; k=0)
+	η = calculate_η(graph)
+
+	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
+
+	ACO(graph, vars, η; k)
+end
+
+# ╔═╡ 72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
+function HeaviestACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
+	η = calculate_η(graph)
+
+	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
+	
+	CommunityACO(graph, vars, η, τ; k=k)
+end
+
+# ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
+begin
+	g = loadgraph("graphs/heavy/changhonghao3.lgz", SWGFormat())
+	
+	vars = ACOSettings(
+			1, # α
+			2, # β
+			30, # number_of_ants
+			0.8, # ρ
+			0.005, # ϵ
+			100, # max_number_of_iterations
+			3 # starting_pheromone_ammount
+		)
+	c = HeaviestACO(g, vars)
+	@show c
+	calculate_heaviness(g, c)
+	
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -733,29 +681,25 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╟─d2c2971a-7160-4035-ad43-c6e7412ec249
+# ╟─d8470914-6064-43a2-9dec-e32302b0fb80
 # ╠═57912b3a-83ae-11ec-0fbf-9da8ce954fe1
-# ╟─d3349619-017d-4d16-aeae-6150f3533a39
-# ╠═c6cfd2c4-fa36-49b8-b054-5d198610c31d
-# ╠═8c158b69-41cb-422f-a7df-10f390792c8f
+# ╠═db5b170a-f3f8-4667-a65c-1f3285d0275c
+# ╠═8fa16cd8-1735-4200-9ad0-4cdbe3e71c91
+# ╠═c9d3fbd8-773f-43ab-bd54-d36c2d16a525
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
-# ╠═f60bc671-65a7-4335-8388-22535751d23b
-# ╠═78a41b8e-18a8-45f3-85a8-693fe2a0b1c2
-# ╟─42bee75a-7831-4214-9eed-251f6c699832
-# ╠═adaaeb50-f117-45ff-934b-890be5e972fe
-# ╠═467549ca-519a-4a84-98e7-9e78d93342a2
-# ╠═ca49cc0e-b106-4dff-ad64-0ae5a568920c
-# ╠═aa8314fd-ab17-4e23-9e83-dc79a6f69209
-# ╟─c94724e8-f634-4506-a605-8d2dd68f8b0b
-# ╠═bbf1563c-6b72-40b6-accc-197a36ebe5c7
-# ╠═4beb6af6-1dde-46f7-8efb-85d16e305243
-# ╠═e004a0f1-99b1-465f-89b3-6e1cc324f560
-# ╠═18d6233b-b7ea-4707-9cfb-18e1a3b19b46
-# ╠═165073f5-cc4e-4f6b-bab7-088a569c385d
-# ╠═4ee1d480-65b1-405c-8a21-7e88eed3fa92
-# ╟─43b8516e-ee3f-4463-8f4c-e0f7947c6df8
-# ╠═8167196c-4a45-45f0-b55b-26b69f27904b
-# ╠═8c6beaf2-f0e0-4d48-b593-06bcdba36455
-# ╠═0f67bf52-8ff3-4ddc-a2c8-e02f48fb5f6c
+# ╠═0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
+# ╠═7e986200-7274-4be5-9b18-3a0b84b570af
+# ╠═6da30365-bb02-47fc-a812-b1f3571a909e
+# ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
+# ╠═d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
+# ╠═354866db-7344-462b-a7ce-711cc316cfcb
+# ╠═a854518f-2b68-402c-a754-c20000504f0a
+# ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d
+# ╠═705178d4-af4b-4104-a660-1de2ba77e81a
+# ╠═4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
+# ╠═a42d4687-b1d2-4a9d-b882-7d648422a72c
+# ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
+# ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
+# ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
