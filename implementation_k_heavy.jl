@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -44,9 +44,14 @@ end
 struct ACOKSettings 
 	acos:: ACOSettings
 	k:: Real
-	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, k) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0), k)
-	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s, k) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s), k)
-	ACOKSettings(acos, k) = new(acos, k)
+	# There are situations when the ACO algorithm is unable to create the k subgraph
+	# There is two options there:
+	# 	false - skip the solution (faster, but might give worse answers, this is recommended if you have points with no neighbours)
+	# 	true  - regenerate solution until a possible one is created (slower, but might give better answers)
+	force_every_solution:: Bool
+	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, k, f) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0), k, f)
+	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s, k, f) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s), k, f)
+	ACOKSettings(acos, k, f) = new(acos, k, f)
 end
 
 # ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
@@ -56,11 +61,11 @@ md"""
 
 # ╔═╡ 0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
 # Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
+function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings, c)
 	graph, n, η, τ = spread(inner)
 
 	# graph.weights[i,j] * 
-	p = [(τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
+	p = [ findfirst(x -> x == j, c) == nothing ? (τ[i, j]^vars.α * η[i, j]^vars.β) : 0 for j in 1:n]
 	if maximum(p) == 0
 		p[i] = 1
 	end
@@ -78,7 +83,14 @@ function generate_s(inner::ACOInner, vars::ACOKSettings)
 	points = zeros(Int64, vars.k)
 	points[1] = i
 	for i in 2:vars.k
-		points[i] = sample(calculate_probabilities(inner, points[i - 1], vars.acos))
+		points[i] = sample(calculate_probabilities(inner, points[i - 1], vars.acos, points))
+		if points[i] == points[i - 1]
+			if vars.force_every_solution
+				return generate_s(inner, vars)
+			else
+				return
+			end
+		end
 	end
 
 	points
@@ -86,6 +98,7 @@ end
 
 # ╔═╡ 6da30365-bb02-47fc-a812-b1f3571a909e
 function choose_iteration_best(inner::ACOInner, settings::ACOSettings, iterations)
+	iterations = filter(x -> x != nothing, iterations)
 	points = Folds.map(x -> settings.eval_f(inner.graph, settings.compute_solution(inner.graph, x)), iterations)
 	index = argmax(points)
 	(iterations[index], points[index])
@@ -102,15 +115,27 @@ begin
 	snd((_, b)) = b
 end
 
+# ╔═╡ 200c98de-e505-405e-ab2a-53eefd3fb2fa
+function calculate_η_ij(graph, i, j, m)
+	if graph.weights[i, j] == 0
+		return 0;
+	end
+	if graph.weights[i, j] < 0
+		return graph.weights[i, j]  - m + 1;
+	end
+
+	graph.weights[i, j] - m
+end
+
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
 function calculate_η(graph)
 	n = nv(graph)
 
-	η = [ graph.weights[i, j] for i in 1:n, j in 1:n]
-
-	if minimum(graph.weights) < 0
-		η .-= minimum(graph.weights)
+	m = minimum(graph.weights)
+	if m >= 0
+		m = 0
 	end
+	η = [ calculate_η_ij(graph, i, j, m) for i in 1:n, j in 1:n]
 
 	η
 end
@@ -121,6 +146,13 @@ function calculate_heaviness(graph, c)
 
 	for i in 1:(length(c) - 1)
 		w_sum += graph.weights[c[i], c[i + 1]]
+	end
+	for i in 1:(length(c) - 2)
+		for j in (i+2):length(c)
+			if graph.weights[c[i], c[j]] > 0
+				w_sum += graph.weights[c[i], c[j]]
+			end
+		end
 	end
 	
 	w_sum
@@ -137,7 +169,7 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 	n, _ = size(η)
 	inner = ACOInner(graph, n, η, τ)
 	
-	
+	@assert nv(graph) >= vars.k	
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
 	τ_max = vars.acos.starting_pheromone_ammount
@@ -149,23 +181,25 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 		
 		S = Folds.map(x -> generate_s(inner, vars), zeros(vars.acos.number_of_ants))
 
-		# Update iteration best
-		(sib, sib_val) = choose_iteration_best(inner, vars.acos, S)
-		if sib_val > sgb_val
-			sgb_val = sib_val
-			sgb = sib
-			
-			# Compute pheromone trail limits
-			τ_max = sgb_val / (1 - vars.acos.ρ)
-			τ_min = vars.acos.ϵ * τ_max
-		end
-		# Update pheromone trails
-		# TODO: test with matrix sum
-		τ .*= vars.acos.ρ
-		for (a, b) in zip(sib, sib[2:end])
-			τ[a, b] += sib_val
-			τ[b, a] += sib_val
-
+		if length(filter(x -> x != nothing, S)) > 0
+			# Update iteration best
+			(sib, sib_val) = choose_iteration_best(inner, vars.acos, S)
+			if sib_val > sgb_val
+				sgb_val = sib_val
+				sgb = sib
+				
+				# Compute pheromone trail limits
+				τ_max = sgb_val / (1 - vars.acos.ρ)
+				τ_min = vars.acos.ϵ * τ_max
+			end
+			# Update pheromone trails
+			# TODO: test with matrix sum
+			τ .*= vars.acos.ρ
+			for (a, b) in zip(sib, sib[2:end])
+				τ[a, b] += sib_val
+				τ[b, a] += sib_val
+	
+			end
 		end
 		τ = min.(τ, τ_max)
 		τ = max.(τ, τ_min)
@@ -206,7 +240,8 @@ function copy_replace_funcs(vars_base::ACOKSettings, eval_f, c_s)
 			eval_f,
 			c_s
 		),
-		vars_base.k
+		vars_base.k,
+		vars_base.force_every_solution
 	)
 end
 
@@ -239,7 +274,7 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("graphs/heavy/changhonghao2.lgz", SWGFormat())
+	g = loadgraph("graphs/heavy/changhonghao3.lgz", SWGFormat())
 	
 	vars = ACOSettings(
 			1, # α
@@ -250,7 +285,7 @@ begin
 			100, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
-	c = HeaviestACOK(g, ACOKSettings(vars, 18))
+	c = HeaviestACOK(g, ACOKSettings(vars, 10, false))
 	@show c
 	calculate_heaviness(g, c)
 	
@@ -737,6 +772,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═6da30365-bb02-47fc-a812-b1f3571a909e
 # ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╠═d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
+# ╠═200c98de-e505-405e-ab2a-53eefd3fb2fa
 # ╠═a854518f-2b68-402c-a754-c20000504f0a
 # ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d
 # ╠═705178d4-af4b-4104-a660-1de2ba77e81a
