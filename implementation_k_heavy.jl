@@ -49,9 +49,12 @@ struct ACOKSettings
 	# 	false - skip the solution (faster, but might give worse answers, this is recommended if you have points with no neighbours)
 	# 	true  - regenerate solution until a possible one is created (slower, but might give better answers)
 	force_every_solution:: Bool
-	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, k, f) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0), k, f)
-	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s, k, f) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s), k, f)
-	ACOKSettings(acos, k, f) = new(acos, k, f)
+	# If we force the length to be exactly k we may not get the correct answer since if we enter into a point from which only negative edges lead to anywhere the algorithm must choose a negative lenght even if there is a way to get to that point using an other route going back to where we come from. Now we can't let these answers become too big, since that would lead to infinite loops, so you can set an upper bound here:
+	# If this equals k we will use the older method with the afforementioned error.
+	solution_max_length:: Integer
+	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, k, f, s) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, (_, _) -> 1.0, (_, _) -> 1.0), k, f, s)
+	ACOKSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s, k, f, s) = new(ACOSettings(α, β, n_a, ρ, ϵ, max_i, start_ph, e_f, c_s), k, f, s)
+	ACOKSettings(acos, k, f, s) = new(acos, k, f, s)
 end
 
 # ╔═╡ 8dd697a4-a690-4a99-95b5-8410756d4ba4
@@ -61,7 +64,7 @@ md"""
 
 # ╔═╡ 0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
 # Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings, c)
+function calculate_probabilities_old(inner::ACOInner, i, vars::ACOSettings, c)
 	graph, n, η, τ = spread(inner)
 
 	# graph.weights[i,j] * 
@@ -76,14 +79,58 @@ function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings, c)
 	p
 end
 
-# ╔═╡ 7e986200-7274-4be5-9b18-3a0b84b570af
-# Constructs a new solution
+# ╔═╡ e2523de6-262d-47ee-8168-6cd7b2aab6b7
+# Calculates the probabilities of choosing edges to add to the solution.
+function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
+	graph, n, η, τ = spread(inner)
+
+	# graph.weights[i,j] * 
+	p = [ (τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
+	if maximum(p) == 0
+		p[i] = 1
+	end
+	s_p = sum(p)
+
+	p ./= s_p
+
+	p
+end
+
+# ╔═╡ 0ec92459-f5d7-4a0c-9ace-9324997dff17
 function generate_s(inner::ACOInner, vars::ACOKSettings)
+	if vars.k == vars.solution_max_length
+		return generate_s_old(inner, vars)
+	end
+	
+	i = rand(1:inner.n)
+	points = zeros(Int64, vars.solution_max_length + 1)
+	points[1] = i
+	j = 2
+	while length(unique(points)) - 1 < vars.k && j <= vars.solution_max_length
+		
+		points[j] = sample(calculate_probabilities(inner, points[j - 1], vars.acos))
+		j += 1
+	end
+
+	if j == vars.solution_max_length + 1 && length(unique(points)) - 1 < vars.k
+		if vars.force_every_solution
+			return generate_s(inner, vars)
+		else
+			return
+		end
+	end
+
+	points[1:(j-1)]
+end
+
+# ╔═╡ 7e986200-7274-4be5-9b18-3a0b84b570af
+# Constructs a new solution, the old way
+function generate_s_old(inner::ACOInner, vars::ACOKSettings)
 	i = rand(1:inner.n)
 	points = zeros(Int64, vars.k)
 	points[1] = i
 	for i in 2:vars.k
-		points[i] = sample(calculate_probabilities(inner, points[i - 1], vars.acos, points))
+		points[i] = sample(calculate_probabilities_old(inner, points[i - 1], vars.acos, points))
 		if points[i] == points[i - 1]
 			if vars.force_every_solution
 				return generate_s(inner, vars)
@@ -120,11 +167,8 @@ function calculate_η_ij(graph, i, j, m)
 	if graph.weights[i, j] == 0
 		return 0;
 	end
-	if graph.weights[i, j] < 0
-		return graph.weights[i, j]  - m + 1;
-	end
 
-	graph.weights[i, j] - m
+	graph.weights[i, j] - m + 1
 end
 
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
@@ -140,27 +184,41 @@ function calculate_η(graph)
 	η
 end
 
+# ╔═╡ a828f66b-b4cf-4ce9-953f-fd6499b5cda2
+function get_weight(g, (x,y))
+	g.weights[x, y]
+end
+
 # ╔═╡ b48ba4f0-f409-43c2-bde2-cb90acd5085d
 function calculate_heaviness(graph, c)
-	w_sum = 0
-
-	for i in 1:(length(c) - 1)
-		w_sum += graph.weights[c[i], c[i + 1]]
-	end
-	for i in 1:(length(c) - 2)
-		for j in (i+2):length(c)
-			if graph.weights[c[i], c[j]] > 0
-				w_sum += graph.weights[c[i], c[j]]
-			end
-		end
-	end
-	
-	w_sum
+	sum(map(x -> get_weight(graph, x) , c))
 end
 
 # ╔═╡ 705178d4-af4b-4104-a660-1de2ba77e81a
-function compute_solution(g, s)
-	s
+function compute_solution(graph, s)
+	edges_orig = [(0,0) for i in 1:(length(s)-1)]
+	for i in 1:(length(s) - 1)
+		if s[i] < s[i+1]
+			edges_orig[i] = (s[i], s[i+1])
+		else
+			edges_orig[i] = (s[i+1], s[i])
+		end
+	end
+	edges_else = []
+	for i in 1:(length(s) - 2)
+		for j in (i+2):length(s)
+			if graph.weights[s[i], s[j]] > 0
+				if s[i] < s[j]
+					push!(edges_else, (s[i], s[j]))
+				else
+					push!(edges_else, (s[j], s[i]))
+				end
+			end
+		end
+	end
+	append!(edges_orig, edges_else)
+	
+	unique(edges_orig)
 end
 
 # ╔═╡ c9c59dc9-ecf6-4442-a867-a8c63120b382
@@ -170,6 +228,7 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 	inner = ACOInner(graph, n, η, τ)
 	
 	@assert nv(graph) >= vars.k	
+	@assert vars.k <= vars.solution_max_length
 	sgb = [i for i in 1:n]
 	sgb_val = -1000
 	τ_max = vars.acos.starting_pheromone_ammount
@@ -241,7 +300,8 @@ function copy_replace_funcs(vars_base::ACOKSettings, eval_f, c_s)
 			c_s
 		),
 		vars_base.k,
-		vars_base.force_every_solution
+		vars_base.force_every_solution,
+		vars_base.solution_max_length,
 	)
 end
 
@@ -274,7 +334,7 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("graphs/heavy/changhonghao3.lgz", SWGFormat())
+	g = loadgraph("graphs/heavy/changhonghao.lgz", SWGFormat())
 	
 	vars = ACOSettings(
 			1, # α
@@ -285,7 +345,7 @@ begin
 			100, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
-	c = HeaviestACOK(g, ACOKSettings(vars, 10, false))
+	c = HeaviestACOK(g, ACOKSettings(vars, 12, false, 20))
 	@show c
 	calculate_heaviness(g, c)
 	
@@ -768,12 +828,15 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═c9d3fbd8-773f-43ab-bd54-d36c2d16a525
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
 # ╠═0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
+# ╠═e2523de6-262d-47ee-8168-6cd7b2aab6b7
 # ╠═7e986200-7274-4be5-9b18-3a0b84b570af
+# ╠═0ec92459-f5d7-4a0c-9ace-9324997dff17
 # ╠═6da30365-bb02-47fc-a812-b1f3571a909e
 # ╟─f644dc75-7762-4ae5-98f7-b5d9e5a05e39
 # ╠═d8bfc438-2d64-4d2f-a66f-14fad5fcaf76
 # ╠═200c98de-e505-405e-ab2a-53eefd3fb2fa
 # ╠═a854518f-2b68-402c-a754-c20000504f0a
+# ╠═a828f66b-b4cf-4ce9-953f-fd6499b5cda2
 # ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d
 # ╠═705178d4-af4b-4104-a660-1de2ba77e81a
 # ╠═c9c59dc9-ecf6-4442-a867-a8c63120b382
