@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -215,7 +215,7 @@ end
 # ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
 function CommunityACO(graph, vars_base::ACOSettings, τ; k=0)
 	n = nv(graph)
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+	η = [i != j ? (graph.weights[i, j] != 0 ? logistic(pearson_corelation(graph, i, j)) : 0) : 0.001 for i in 1:n, j in 1:n]
 
 	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
 
@@ -225,7 +225,7 @@ end
 # ╔═╡ 29da4832-6d05-4dfa-8be9-0dd01893ede1
 function CommunityACO(graph, vars_base::ACOSettings; k=0)
 	n = nv(graph)
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+	η = [i != j ? (graph.weights[i, j] != 0 ? logistic(pearson_corelation(graph, i, j)) : 0) : 0.001 for i in 1:n, j in 1:n]
 
 	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
 
@@ -235,7 +235,7 @@ end
 # ╔═╡ 72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 function CommunityACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
 	n = nv(graph)
-	η = [i != j ? logistic(pearson_corelation(graph, i, j)) : 0.001 for i in 1:n, j in 1:n]
+	η = [i != j ? (graph.weights[i, j] != 0 ? logistic(pearson_corelation(graph, i, j)) : 0) : 0.001 for i in 1:n, j in 1:n]
 
 	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
 	

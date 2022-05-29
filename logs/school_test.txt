@@ -1,0 +1,17 @@
+Number of people 50
+Number of classes 6
+Number of friend groups 3
+Number of friend groups 11
+Number of classes/day 3
+Ratio of interaction with other class, during class per 5 minutes (x / 1000): 5
+Ratio of interaction with other group, during break per minute (x / 1000): 5
+Time intervals in minutes: 1
+People-Class vector
+[5, 6, 5, 2, 1, 6, 6, 4, 3, 3, 5, 5, 3, 1, 5, 5, 1, 5, 1, 5, 1, 3, 4, 6, 1, 3, 5, 1, 5, 6, 4, 3, 6, 5, 4, 5, 1, 2, 1, 6, 2, 6, 2, 1, 4, 6, 5, 5, 4, 1]
+People-Group vector
+[10, 9, 12, 4, 5, 6, 19, 12, 8, 4, 10, 11, 3, 1, 11, 16, 3, 6, 3, 9, 1, 10, 12, 9, 3, 11, 12, 1, 9, 9, 14, 11, 12, 8, 14, 16, 4, 4, 4, 18, 4, 9, 2, 2, 10, 16, 5, 9, 5, 3]
+Group-place vector
+[4, 5, 5, 6, 1, 1, 2, 4, 4, 1, 1, 3, 1, 1, 5, 2, 2, 5]
+Teacher timetable
+[[4, 0, 0, 3, 0, 0, 2, 5, 1, 0, 6], [4, 0, 2, 5, 6, 0, 1, 0, 0, 3, 0], [5, 4, 0, 0, 2, 1, 0, 0, 0, 3, 6]]
+Any["Classtime switch at 4 , person: 10, 3 -> 4", "Classtime switch at 4 , person: 37, 1 -> 1", "Classtime switch at 9 , person: 15, 5 -> 4", "Classtime switch at 9 , person: 49, 4 -> 4", "Classtime switch at 12 , person: 23, 4 -> 5", "Classtime switch at 25 , person: 11, 5 -> 1", "Classtime switch at 28 , person: 13, 3 -> 5", "Classtime switch at 35 , person: 35, 4 -> 1", "Classtime switch at 35 , person: 50, 1 -> 6", "Classtime switch at 38 , person: 16, 5 -> 3", "Classtime switch at 39 , person: 24, 6 -> 3", "Classtime switch at 39 , person: 33, 6 -> 2", "Classtime switch at 43 , person: 1, 5 -> 4", "Classtime switch at 43 , person: 48, 5 -> 2", "Classtime switch at 44 , person: 17, 1 -> 3", "Classtime switch at 44 , person: 30, 6 -> 1", "Classtime switch at 46 , person: 3, 5 -> 4", "Classtime switch at 46 , person: 24, 6 -> 4", "Breaktime switch at 51 , person: 28, 1 -> 1", "Breaktime switch at 57 , person: 47, 5 -> 2", "Classtime switch at 60 , person: 46, 6 -> 2", "Classtime switch at 62 , person: 9, 3 -> 6", "Classtime switch at 63 , person: 10, 3 -> 1", "Classtime switch at 66 , person: 32, 3 -> 4", "Classtime switch at 68 , person: 32, 3 -> 6", "Classtime switch at 72 , person: 25, 1 -> 4", "Classtime switch at 73 , person: 44, 1 -> 4", "Classtime switch at 85 , person: 41, 2 -> 6", "Classtime switch at 91 , person: 14, 1 -> 1", "Classtime switch at 95 , person: 39, 1 -> 5", "Classtime switch at 97 , person: 11, 5 -> 2", "Breaktime switch at 111 , person: 15, 11 -> 1", "Breaktime switch at 111 , person: 31, 14 -> 2", "Breaktime switch at 111 , person: 34, 8 -> 2", "Breaktime switch at 117 , person: 46, 16 -> 1", "Classtime switch at 120 , person: 32, 3 -> 2", "Classtime switch at 121 , person: 40, 6 -> 2", "Classtime switch at 122 , person: 34, 5 -> 1", "Classtime switch at 127 , person: 8, 4 -> 3", "Classtime switch at 137 , person: 21, 1 -> 3", "Classtime switch at 153 , person: 12, 5 -> 4", "Classtime switch at 159 , person: 20, 5 -> 6", "Classtime switch at 160 , person: 47, 5 -> 5", "Classtime switch at 168 , person: 11, 5 -> 4", "Classtime switch at 169 , person: 41, 2 -> 5", "Breaktime switch at 175 , person: 19, 3 -> 1", "Breaktime switch at 175 , person: 20, 9 -> 2"]

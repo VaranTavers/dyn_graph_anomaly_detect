@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -39,8 +39,8 @@ $(@bind number_of_classes Scrubbable(2:15))
 
 # ╔═╡ 4b034fbb-32d2-4685-ade2-da91b86c0680
 md"""
-Number of friend groups:
-$(@bind number_of_friend_groups Scrubbable(2:100))
+Number of friend groups per class:
+$(@bind number_of_friend_groups Scrubbable(2:10))
 """
 
 # ╔═╡ b9ade87f-fd67-4996-84f2-ca2401081e4f
@@ -64,10 +64,10 @@ $(@bind number_of_classes_per_day Scrubbable(3:8))
 people_classes = rand(collect(1:number_of_classes), number_of_people)
 
 # ╔═╡ cbffd573-71dc-4f2b-80ba-ba1240f1d56e
-people_groups = rand(collect(1:number_of_friend_groups), number_of_people)
+people_groups = map(x -> rand(collect(x:((x+1)*number_of_friend_groups - 1))) , people_classes)
 
 # ╔═╡ 6cdb2cba-9925-4c37-a573-540a014941a4
-groups_places = rand(collect(1:number_of_places), number_of_friend_groups)
+groups_places = rand(collect(1:number_of_places), number_of_friend_groups * number_of_classes)
 
 # ╔═╡ 8f5e857c-a51d-4d15-b2b5-bf00f686b1c9
 # We will pemute this vector to get a timetable for each class
@@ -75,13 +75,13 @@ teacher_classes = vcat(collect(1:number_of_classes), zeros(Int64, number_of_teac
 
 # ╔═╡ d2c3d71a-1548-417e-9264-acb852299443
 md"""
-Ratio of interaction with other class, during class per 5 minutes (x / 1000):
+Ratio of interaction with other class, during class per interval (x / 1000):
 $(@bind p_class_inter Scrubbable(0:200))
 """
 
 # ╔═╡ 39b4915b-57f8-4655-adc6-b3a3d3ae068d
 md"""
-Ratio of interaction with other group, during break per minute (x / 1000):
+Ratio of interaction with other group, during break per interval (x / 1000):
 $(@bind p_group_inter Scrubbable(0:200))
 """
 
@@ -106,21 +106,36 @@ function log!(log, string, i)
 	end
 end
 
-# ╔═╡ 7823c46b-3142-4606-a286-01a6defaf1b3
-function calculate_class_time!(mat, logs, m, time)
-	if m <= number_of_people
-		class = people_classes[m]
-		if rand() < p_class_inter / 1000
-			class = rand(1:number_of_classes)
-			log!(logs, "Classtime switch at $(time) , person: $(m), $(people_classes[m]) -> $(class)", 1)
-		end
-		same_class = vcat(people_classes .== class, timetable[Int64(ceil(time / 60))] .== class)
-		mat[m, same_class] .+= 1
-	else
-		class = timetable[Int64(ceil(time / 60))][m - number_of_people]
-		same_class = vcat(people_classes .== class, timetable[Int64(ceil(time / 60))] .== 9999)
-		mat[m, same_class] .+= 1
+# ╔═╡ 42b340a2-1640-4766-9783-5cf40832bf53
+function calculate_class_time_person(logs, time, m)
+	class = people_classes[m]
+	if rand() < p_class_inter / 1000
+		class = rand(1:number_of_classes)
+		log!(logs, "Classtime switch at $(time) , person: $(m), $(people_classes[m]) -> $(class)", 1)
 	end
+
+	class
+end
+
+# ╔═╡ 7823c46b-3142-4606-a286-01a6defaf1b3
+function calculate_class_time_people(logs, time)
+	[ calculate_class_time_person(logs, time, m) for m in 1:number_of_people]
+end
+
+# ╔═╡ 8f47f326-14bb-4e35-a272-4ef23c35ff92
+function calculate_break_time_person(logs, time, m)
+	group = people_groups[m]
+	if rand() < p_group_inter / 1000
+		group = rand(1:number_of_friend_groups)
+		log!(logs, "Breaktime switch at $(time) , person: $(m), $(people_groups[m]) -> $(group)", 1)
+	end
+
+	group
+end
+
+# ╔═╡ 94063385-f505-4b74-a915-5a5e26a2274c
+function calculate_break_time_people(logs, time)
+	[ calculate_break_time_person(logs, time, m) for m in 1:number_of_people]
 end
 
 # ╔═╡ 5bf8ff8f-c3bb-43fd-9298-b15c985ade12
@@ -128,50 +143,35 @@ function get_place(groups)
 	map(x -> groups_places[x], groups)
 end
 
-# ╔═╡ 8f47f326-14bb-4e35-a272-4ef23c35ff92
-function calculate_break_time!(mat, logs, m, time)
-	if m <= number_of_people
-		group = people_groups[m]
-		if rand() < p_group_inter / 1000
-			group = rand(1:number_of_friend_groups)
-			log!(logs, "Breaktime switch at $(time) , person: $(m), $(people_groups[m]) -> $(group)", 1)
-		end
-		same_group = vcat(people_groups .== group, timetable[Int64(ceil(time / 60))] .== 9999)
-		same_place = vcat(get_place(people_groups) .== get_place(group), timetable[Int64(ceil(time / 60))] .== 9999)
-		mat[m, same_place] .+= 1
-		mat[m, same_group] .+= 2
-	else
-		same_group = vcat(people_classes .== 9999, timetable[Int64(ceil(time / 60))] .!= 9999)
-		mat[m, same_group] .+= 1
-	end
+# ╔═╡ 1512550e-144a-4753-87bf-d0f453ce0915
+function calculate_class_time_all(logs, i)
+	vcat(calculate_class_time_people(logs, i), timetable[Int64(ceil(i / 60))])
+end
+
+# ╔═╡ b3ab9aba-6c15-4e58-926c-f00d2950d642
+function calculate_break_time_all(logs, i)
+	vcat(calculate_break_time_people(logs, i), [9999 for i in 1:number_of_teachers])
+end
+
+# ╔═╡ bc4e4d34-cd8d-4751-b97e-d0e991a5914c
+begin
+	n = number_of_people + number_of_teachers
+	logs = []
+	
+	people_place_table = [ i % 60 < 50 ? calculate_class_time_all(logs, i) : calculate_break_time_all(logs, i) for i in 1:(number_of_classes_per_day * 60)]
 end
 
 # ╔═╡ 519686e3-2c3c-46b3-97b0-20077a42ead9
-function create_interval(start_time, time_interval)
+function create_interval(start_time::Integer, time_interval::Integer)
 	n = number_of_people + number_of_teachers
 	g = SimpleWeightedGraph(n)
-	
-	mat = zeros(n, n)
-	logs = []
 
-	log!(logs, string("Time: $start_time"), 0)
+	mat = zeros(n, n)
 	
 	for t in start_time:(start_time + time_interval - 1)
-		if verbose
-		log!(logs, "Time: $t", 0)
-		end
-		if t % 60 == 0
-			log!(logs, "Class time", 0)
-		end
-		if t % 60 == 50
-			log!(logs, "Break time", 0)
-		end
 		for m in 1:n
-			if t % 60 < 50
-				calculate_class_time!(mat, logs, m, t)
-			else
-				calculate_break_time!(mat, logs, m, t)
-			end
+			same_class = people_place_table[t] .== people_place_table[t][m]
+			mat[m, same_class] .+= 1
 		end
 	end
 
@@ -185,23 +185,14 @@ function create_interval(start_time, time_interval)
 		end
 	end
 
-	(g, logs)
+	g
 end
 
 # ╔═╡ 5b0f0db9-8ac1-41f2-8dec-7e5d3ba5a9bc
-graphs_logs = Folds.map(i -> create_interval((i - 1) * δ_t + 1, δ_t), 1:(number_of_classes_per_day * 60 / δ_t - 1))
-
-# ╔═╡ a6b34d7f-6255-4267-ae68-fbacc0884b05
-fst((a, _)) = a
-
-# ╔═╡ 7b59b387-0ba8-480f-8725-55e871c53806
-snd((_, b)) = b
-
-# ╔═╡ 2a1c9c29-faaa-4f6d-8dea-b6315558872a
-logs = join(Iterators.flatten((snd.(graphs_logs))), "\n")
+graphs = Folds.map(i -> create_interval(Int64((i - 1) * δ_t + 1), δ_t), 1:(ceil(number_of_classes_per_day * 60 / δ_t - 1)))
 
 # ╔═╡ 29fee730-866b-456a-b6c7-0e7c30c2152c
-@bind g_i Scrubbable(1:length(graphs_logs))
+@bind g_i Scrubbable(1:length(graphs))
 
 # ╔═╡ 0639a2cf-3181-407e-bac5-4969d679e851
 begin
@@ -209,7 +200,7 @@ begin
 	colors = distinguishable_colors(3)[2:end]
 	node_colors = [colors[i <= number_of_people ? 1 : 2] for i in 1:m]
 	nodelabel=collect(1:m)
-	gplot(fst(graphs_logs[g_i]), nodesize=3, nodelabel=nodelabel, nodefillc=node_colors)
+	gplot(graphs[g_i], nodesize=3, nodelabel=nodelabel, nodefillc=node_colors, layout=(args...)->spring_layout(args...; C=10))
 end
 
 # ╔═╡ 265741e9-2057-49d3-9da3-792471414ba0
@@ -226,9 +217,10 @@ $(@bind go CheckBox()) Create
 # ╔═╡ 3abf3570-4de2-457b-9197-b15c3683c818
 begin
 	if go
-		for (i, g) in enumerate(graphs_logs)
-			savegraph("dynamic_graphs/$(name)$(i).lgz", fst(g))
-			open("logs/$(name).txt","w") do io
+		for (i, g) in enumerate(graphs)
+			savegraph("dynamic_graphs/$(name)$(i).lgz", g)
+		end
+		open("logs/$(name).txt","w") do io
 				println(io, "Number of people $(number_of_people)")
 				println(io, "Number of classes $(number_of_classes)")
 				println(io, "Number of friend groups $(number_of_friend_groups)")
@@ -247,7 +239,6 @@ begin
 				println(io, timetable);
    				println(io,logs)
 			end
-		end
 	end
 end
 
@@ -722,19 +713,21 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═6cdb2cba-9925-4c37-a573-540a014941a4
 # ╠═8f5e857c-a51d-4d15-b2b5-bf00f686b1c9
 # ╟─d2c3d71a-1548-417e-9264-acb852299443
-# ╟─39b4915b-57f8-4655-adc6-b3a3d3ae068d
+# ╠═39b4915b-57f8-4655-adc6-b3a3d3ae068d
 # ╟─a124a4c8-398b-4f6d-aa83-aaee916b7760
 # ╟─242aa867-9430-4920-9727-301194d134fa
 # ╠═42688150-a3e3-4d2a-8c5e-c6620b4c43b0
 # ╟─2a7b010e-603c-4d3b-a63b-76cfe44b5055
+# ╠═42b340a2-1640-4766-9783-5cf40832bf53
 # ╠═7823c46b-3142-4606-a286-01a6defaf1b3
-# ╠═5bf8ff8f-c3bb-43fd-9298-b15c985ade12
 # ╠═8f47f326-14bb-4e35-a272-4ef23c35ff92
+# ╠═94063385-f505-4b74-a915-5a5e26a2274c
+# ╠═5bf8ff8f-c3bb-43fd-9298-b15c985ade12
+# ╠═1512550e-144a-4753-87bf-d0f453ce0915
+# ╠═b3ab9aba-6c15-4e58-926c-f00d2950d642
+# ╠═bc4e4d34-cd8d-4751-b97e-d0e991a5914c
 # ╠═519686e3-2c3c-46b3-97b0-20077a42ead9
 # ╠═5b0f0db9-8ac1-41f2-8dec-7e5d3ba5a9bc
-# ╠═a6b34d7f-6255-4267-ae68-fbacc0884b05
-# ╠═7b59b387-0ba8-480f-8725-55e871c53806
-# ╠═2a1c9c29-faaa-4f6d-8dea-b6315558872a
 # ╠═29fee730-866b-456a-b6c7-0e7c30c2152c
 # ╠═0639a2cf-3181-407e-bac5-4969d679e851
 # ╟─265741e9-2057-49d3-9da3-792471414ba0

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -161,9 +161,7 @@ function get_best_combination(graph, eval_f, c)
 	end
 
 	best = argmax(joins_modularities)
-	@show joins_modularities
 	_, _, c_res = joins_modularities[best]
-	@show c_res
 
 	c_res
 end
@@ -214,10 +212,11 @@ function ACO(graph, vars::ACOSettings, η, τ; k = 0)
 	# While termination condition not met
 	for i in 1:vars.max_number_of_iterations
 		# Construct new solution s according to Eq. 2
+		
 		if i % 3 < 2
-			S = Folds.map(x -> generate_s(inner, vars), zeros(vars.number_of_ants))
+			S = Folds.map(x -> generate_s(inner, vars), 1:vars.number_of_ants)
 		else
-			S = Folds.map(x -> generate_s_avoid_duplicate(inner, vars), zeros(vars.number_of_ants))
+			S = Folds.map(x -> generate_s_avoid_duplicate(inner, vars), 1:vars.number_of_ants)
 		end
 
 		# Update iteration best

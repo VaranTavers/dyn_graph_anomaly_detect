@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -46,13 +46,13 @@ end
 # ╔═╡ 102b3c2a-9506-4a59-8c8d-e38692e22742
 begin
 	implementation_jl = ingredients("./implementation_community.jl")
-	import .implementation_jl: ACO, calculate_modularity, ACOSettings, normalized_mutual_information, ACO_get_pheromone
+	import .implementation_jl: CommunityACO, calculate_modularity, ACOSettings, normalized_mutual_information, CommunityACO_get_pheromone
 end
 
 # ╔═╡ 6df4dd31-d769-4336-a142-cdfd1585f29b
 begin
 	com_func_jl = ingredients("./community_functions.jl")
-	import .com_func_jl: relabel_communities, calculate_merging, calculate_splitting, calculate_unusual_appearance, calculate_community_birth, calculate_community_death
+	import .com_func_jl: relabel_communities, calculate_merging, calculate_splitting, calculate_unusual_appearance, calculate_community_activation, calculate_community_deactivation
 end
 
 # ╔═╡ 467be1e9-1fe0-4f52-baeb-efb21c89c693
@@ -99,7 +99,7 @@ begin
 end
 
 # ╔═╡ 48509c7e-40cc-4930-967f-75f77c14701d
-apply_aco(x) = ACO(x, vars)
+apply_aco(x) = CommunityACO(x, vars)
 
 # ╔═╡ 27207be6-5031-4001-a98d-cb356b7ace68
 graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
@@ -107,7 +107,7 @@ graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:numb
 # ╔═╡ 9903f2b0-90a2-4847-a00f-f033d79e2a12
 function reducer_ACO(X, g)
 	x, τ = X
-	c2, τ_c = ACO(g, vars, τ)
+	c2, τ_c = CommunityACO(g, vars, τ)
 	push!(x, c2)
 	(x, τ_c)
 end
@@ -116,7 +116,7 @@ end
 if !continuous
 	communities_pred = Folds.map(apply_aco, graphs)
 else
-	c, τ_c = ACO_get_pheromone(graphs[1], vars::ACOSettings)
+	c, τ_c = CommunityACO_get_pheromone(graphs[1], vars::ACOSettings)
 	communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
 end
 
@@ -135,11 +135,11 @@ community_size_lists = [map(x -> count(x .== i), communities_pred2) for i in 1:n
 # ╔═╡ 6cdb9c6f-a929-4eb1-aa57-42d41776ed22
 calculate_unusual_appearance(
 	community_size_lists[1],
-	calculate_community_birth(community_size_lists[1]),
-	calculate_community_death(community_size_lists[1]))
+	calculate_community_activation(community_size_lists[1]),
+	calculate_community_deactivation(community_size_lists[1]))
 
 # ╔═╡ 1c6b9f15-2805-4eac-bd31-f1630fd8434c
-c_deaths = [calculate_community_birth(community_size_lists[i]) for i in 1:num_of_relabeled_communities]
+c_deaths = [calculate_community_activation(community_size_lists[i]) for i in 1:num_of_relabeled_communities]
 
 # ╔═╡ c8c14745-75da-4d17-8227-751d13e62e75
 matrix

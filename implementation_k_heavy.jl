@@ -332,6 +332,17 @@ function HeaviestACOK_get_pheromone(graph, vars_base::ACOKSettings)
 	HeaviestACOK(graph, vars, η, τ)
 end
 
+# ╔═╡ 7e37429c-521d-4d6a-bebd-475cb9573803
+function solution_to_community(graph, solution)
+	n = nv(graph)
+
+	f = fst.(solution)
+	s = snd.(solution)
+	append!(f, s)
+
+	[ findfirst(x->x==i, f) != nothing ? 1 : 0 for i in 1:n]
+end
+
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
 	g = loadgraph("graphs/heavy/changhonghao.lgz", SWGFormat())
@@ -350,6 +361,9 @@ begin
 	calculate_heaviness(g, c)
 	
 end
+
+# ╔═╡ 83ec8e2b-3f89-46f1-b70e-b53c51496364
+solution_to_community(g, c)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -846,6 +860,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═a42d4687-b1d2-4a9d-b882-7d648422a72c
 # ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
 # ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
+# ╠═7e37429c-521d-4d6a-bebd-475cb9573803
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
+# ╠═83ec8e2b-3f89-46f1-b70e-b53c51496364
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

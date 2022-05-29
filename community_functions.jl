@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -25,13 +25,30 @@ function calculate_community_similarity2(c1, c2, i, j)
 	count((c1 .!= i) .&& (c2 .== j))) / (4 * n1)
 end
 
+# ╔═╡ a93406c3-db78-403d-bc7f-3d6de25ce608
+function calculate_community_similarity3(c1, c2, i, j)
+	n = length(c1)
+	1 - count((c1 .== i) .⊻ (c2 .== j)) / count((c1 .== i) .|| (c2 .== j))
+end
+
+# ╔═╡ 79511d3a-1e2c-4aea-9889-1c5c8844746e
+function calculate_community_similarity4(c1, c2, i, j)
+	n = length(c1)
+	n1 = count((c1 .== i))
+
+	sim = (count((c1 .== i) .&& (c2 .== j)) - count((c1 .== i) .&& (c2 .!= j))) * 2
+	- (count((c1 .!= i) .&& (c2 .!= j)) - count((c1 .!= i) .&& (c2 .== j)))
+
+	1 / (1 + exp(-sim))
+end
+
 # ╔═╡ 1eb5bc1b-52d5-4482-a2cf-e83b044b15f5
-function calc_sim(c_list, (com_i, c_list_i), (com_j, c_list_j))
-	calculate_community_similarity2(c_list[c_list_i], c_list[c_list_j], com_i, com_j)
+function calc_sim(c_list, (com_i, c_list_i), (com_j, c_list_j), s_f)
+	s_f(c_list[c_list_i], c_list[c_list_j], com_i, com_j)
 end
 
 # ╔═╡ 926c5c37-b87b-480e-b042-f89b7c4b456d
-function relabel_communities(c_list, p; changing=false)
+function relabel_communities(c_list, p; changing=false, similarity_f=calculate_community_similarity2)
 	ret = deepcopy(c_list)
 	communities = [1 for i in 1:maximum(c_list[1])]
 	
@@ -41,7 +58,7 @@ function relabel_communities(c_list, p; changing=false)
 		n_c = maximum(c)
 		translation = zeros(n_c)
 		for c_i in (length(communities) + 1):n_c
-			scores = Folds.map(x -> calc_sim(ret, (c_i, i), x), enumerate(communities))
+			scores = Folds.map(x -> calc_sim(ret, (c_i, i), x, similarity_f), enumerate(communities))
 			max_score_index = argmax(scores)
 			if scores[max_score_index] < p
 				append!(communities, i)
@@ -58,9 +75,9 @@ function relabel_communities(c_list, p; changing=false)
 end
 
 # ╔═╡ 10041156-7aba-4fb9-a172-e7fe215fba8a
-function calculate_community_birth(size_list)
+function calculate_community_activation(size_list)
 	for (i, n) in enumerate(size_list)
-		# If a community is present at this point, it barely appears before this point, and it is barely missing after this point, then we consider this point the "birth" of the community.
+		# If a community is present at this point, it barely appears before this point, and it is barely missing after this point, then we consider this point the activation of the community.
 		if n != 0 && 
 		count(size_list[i:end] .> 0) / (length(size_list[i:end])) > 0.8 &&	
 		count(size_list[1:i] .== 0) / (i + 1) > 0.7
@@ -71,10 +88,15 @@ function calculate_community_birth(size_list)
 	0
 end
 
+# ╔═╡ 783d617d-113e-4ec9-a144-6eb060738f3d
+function calculate_community_creation(size_list)
+	findfirst(x -> x > 0, size_list)
+end
+
 # ╔═╡ 5be87169-43f1-4ddf-9c5c-9af5d4504804
-function calculate_community_death(size_list)
+function calculate_community_deactivation(size_list)
 	for (i, n) in enumerate(size_list)
-		# If a community is not present at this point, it barely appears after this point, and it was barely missing before this point, then we consider this point the "death" of the community.
+		# If a community is not present at this point, it barely appears after this point, and it was barely missing before this point, then we consider this point the deactivation of the community.
 		if n == 0 && 
 		count(size_list[i:end] .== 0) / (length(size_list[i:end])) > 0.8 &&	
 		count(size_list[1:i] .> 0) / (i + 1) > 0.7
@@ -83,6 +105,11 @@ function calculate_community_death(size_list)
 	end
 
 	0
+end
+
+# ╔═╡ c8a96dcb-65ae-4562-a05d-a6d286d626cc
+function calculate_community_disappearance(size_list)
+	findlast(x -> x > 0, size_list)
 end
 
 # ╔═╡ d169f9fd-fd0b-4209-967e-fd834439cb28
@@ -183,10 +210,25 @@ end
 test_change_commnunities = [[1, 1, 1, 2, 2, 2], [1, 1, 1, 1, 2, 2], [2, 1, 1, 1, 1, 2], [2, 2, 1, 1, 1, 1]]
 
 # ╔═╡ 7c10c2f1-158a-4158-8467-a8be9574460a
-relabel_communities(test_change_commnunities, 0.6; changing=true)
+relabel_communities(test_change_commnunities, 0.3; changing=true, similarity_f=calculate_community_similarity3)
 
 # ╔═╡ ee187301-524f-4452-be96-bd94e68aa4f9
 relabel_communities(test_change_commnunities, 0.6; changing=false)
+
+# ╔═╡ 1c3e0b4a-0447-4298-99c3-d5ef57e6b16a
+test_split_communities = [[1, 1, 1, 1, 1, 1, 1, 1],[1, 1, 1, 1, 1, 1, 1, 1],[2, 3, 2, 3, 2, 3, 2, 3],[2, 3, 2, 3, 2, 3, 2, 3]]
+
+# ╔═╡ 1724765f-5ba7-41b3-90af-70fc890e0053
+test_split_size_list = [[8, 8, 0, 0], [0, 0, 4, 4], [0, 0, 4, 4]]
+
+# ╔═╡ 1b6986ac-8a3c-4420-869b-42107fa31788
+calculate_splitting(test_split_communities, test_split_size_list, 1)
+
+# ╔═╡ cde909a7-c5c4-49a9-a2f8-9b61576b4954
+calculate_merging(reverse(test_split_communities), reverse.(test_split_size_list), 1)
+
+# ╔═╡ f53dd427-30eb-4dfc-af43-40dfd7a7dfd1
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -512,10 +554,14 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═7e546c44-4e50-412f-9144-bb2056d749ff
 # ╠═91d589d0-a609-11ec-2dbe-bb52470686eb
 # ╠═5abe5bbb-5ed5-4ff8-8ac6-4b253e4c82d1
+# ╠═a93406c3-db78-403d-bc7f-3d6de25ce608
+# ╠═79511d3a-1e2c-4aea-9889-1c5c8844746e
 # ╠═1eb5bc1b-52d5-4482-a2cf-e83b044b15f5
 # ╠═926c5c37-b87b-480e-b042-f89b7c4b456d
 # ╠═10041156-7aba-4fb9-a172-e7fe215fba8a
+# ╠═783d617d-113e-4ec9-a144-6eb060738f3d
 # ╠═5be87169-43f1-4ddf-9c5c-9af5d4504804
+# ╠═c8a96dcb-65ae-4562-a05d-a6d286d626cc
 # ╠═d169f9fd-fd0b-4209-967e-fd834439cb28
 # ╠═8d11583f-eccf-45e0-8624-5f5158faf632
 # ╠═629914f9-6411-417f-9eb8-b812a47551a1
@@ -525,5 +571,10 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═04037256-85ac-4064-96ed-c9183ff34b1f
 # ╠═7c10c2f1-158a-4158-8467-a8be9574460a
 # ╠═ee187301-524f-4452-be96-bd94e68aa4f9
+# ╠═1c3e0b4a-0447-4298-99c3-d5ef57e6b16a
+# ╠═1724765f-5ba7-41b3-90af-70fc890e0053
+# ╠═1b6986ac-8a3c-4420-869b-42107fa31788
+# ╠═cde909a7-c5c4-49a9-a2f8-9b61576b4954
+# ╠═f53dd427-30eb-4dfc-af43-40dfd7a7dfd1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
