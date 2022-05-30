@@ -71,24 +71,28 @@ $A_{ij} - \frac{k_i * k_j}{2m}$
 
 # ╔═╡ bf2fe679-e748-4117-9425-c4285f0d729e
 function calculate_modularity_inner(graph, i, j)
+	begin
 	m = ne(graph)
 	A_ij = has_edge(graph, i, j) ? 1 : 0
 	k_i = length(all_neighbors(graph, i))
 	k_j = length(all_neighbors(graph, j))
 
 	A_ij - (k_i * k_j) / 2m
+	end
 end
 
 # ╔═╡ 74f178c1-4ecd-4ecf-8a08-ce3a4dbdb766
 function calculate_modularity(graph, c)
+	begin
 	m = ne(graph)
 	n = nv(graph)
+	numbers = collect(1:n)
 
-	s = sum(Iterators.flatten([
-		[ calculate_modularity_inner(graph, i, j) * δ(c[i], c[j])
-		for j in 1:n] for i in 1:n]))
+	rows = Folds.map(i -> [calculate_modularity_inner(graph, i, j) for j in numbers[c .== c[i]]], 1:n)
+	s = sum(sum.(rows))
 
 	s / 2m
+	end
 end
 
 # ╔═╡ 0d55705f-b656-4479-a7e9-5cbfef9063b3
@@ -143,18 +147,16 @@ $C(i,j) = \frac{\sum_{v_t \in V}{(A_{il} - \mu_i)(A_{jl} - \mu_j)}}{n\sigma_i\si
 function pearson_corelation(graph::SimpleWeightedGraph{Int64, Float64}, i, j)
 	n = nv(graph)
 	
-	μ_i = sum(map(x -> graph.weights[i, x], 1:n)) / nv(graph)
-	μ_j = sum(map(x -> graph.weights[j, x], 1:n)) / nv(graph)
-	σ_i = sqrt(sum(map(x -> (graph.weights[i, x] - μ_i) ^ 2, 1:n)) / n)
-	σ_j = sqrt(sum(map(x -> (graph.weights[j, x] - μ_j) ^ 2, 1:n)) / n)
+	μ_i = sum(graph.weights[i, :]) / n
+	μ_j = sum(graph.weights[j, :]) / n
+	σ_i = sqrt(sum((graph.weights[i, :] .- μ_i) .^ 2) / n)
+	σ_j = sqrt(sum((graph.weights[j, :] .- μ_j) .^ 2) / n)
 
 	if σ_i * σ_j == 0
 		return -1
 	end
 
-	numerator = sum(
-		[(graph.weights[i, x] - μ_i) * (graph.weights[j, x] - μ_j) for x in 1:n]
-	)
+	numerator = sum((graph.weights[i, :] .- μ_i) .* (graph.weights[j, :] .- μ_j))
 
 	numerator / (n * σ_i * σ_j)
 end
@@ -162,8 +164,8 @@ end
 # ╔═╡ 8df82f08-118b-406a-a0a4-c5699590f9df
 # Built for bidirectional edges
 # Transforms the edge representation from generate_s to a community vector.
-function compute_solution(g, edges)
-	n = nv(g)
+function compute_solution(n, edges)
+	begin
 	tmp_g = SimpleWeightedGraph(n)
 	for (a, b) in enumerate(edges)
 		add_edge!(tmp_g, a, b)
@@ -195,6 +197,7 @@ function compute_solution(g, edges)
 	end
 	
 	s
+	end
 end
 
 # ╔═╡ 4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
@@ -212,10 +215,26 @@ function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
 	)
 end
 
+# ╔═╡ 481e0c2b-00f6-408c-b829-1872415892e7
+function same_neighbors(g, i, j)
+	a = Set(all_neighbors(g, i))
+	b = Set(all_neighbors(g, j))
+	
+	length(intersect(a, b)) / nv(g)
+end
+
+# ╔═╡ 64a08561-b1c3-4d42-b58f-85bb8486460b
+# We can calculate the number of common neighbors faster if we multiply the incidency matrix with it's tranposed matrix.
+function get_η_common_neighbors(g2)
+	M = ceil.(abs.(g2.weights))
+	M2 = M * M' / nv(g2)
+	[i != j ? (g2.weights[i, j] != 0 ? M2[i, j] : 0.0) : 0.001 for i in 1:nv(g2), j in 1:nv(g2)]
+end
+
 # ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
 function CommunityACO(graph, vars_base::ACOSettings, τ; k=0)
 	n = nv(graph)
-	η = [i != j ? (graph.weights[i, j] != 0 ? logistic(pearson_corelation(graph, i, j)) : 0) : 0.001 for i in 1:n, j in 1:n]
+	η = get_η_common_neighbors(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
 
@@ -225,7 +244,7 @@ end
 # ╔═╡ 29da4832-6d05-4dfa-8be9-0dd01893ede1
 function CommunityACO(graph, vars_base::ACOSettings; k=0)
 	n = nv(graph)
-	η = [i != j ? (graph.weights[i, j] != 0 ? logistic(pearson_corelation(graph, i, j)) : 0) : 0.001 for i in 1:n, j in 1:n]
+	η = get_η_common_neighbors(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
 
@@ -235,11 +254,11 @@ end
 # ╔═╡ 72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 function CommunityACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
 	n = nv(graph)
-	η = [i != j ? (graph.weights[i, j] != 0 ? logistic(pearson_corelation(graph, i, j)) : 0) : 0.001 for i in 1:n, j in 1:n]
+	η = get_η_common_neighbors(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_modularity, compute_solution)
 	
-	CommunityACO(graph, vars, η, τ; k=k)
+	ACO_get_pheromone(graph, vars, η; k=k)
 end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
@@ -256,7 +275,7 @@ begin
 			3 # starting_pheromone_ammount
 		)
 	c = CommunityACO(g, vars)
-	@show c
+	c
 	calculate_modularity(g, c)
 	
 end
@@ -269,16 +288,19 @@ begin
 			1, # α
 			2, # β
 			30, # number_of_ants
-			0.9, # ρ
+			0.8, # ρ
 			0.005, # ϵ
 			100, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
-	@time c2 = CommunityACO(g2, vars2)
-	@show c2
+	c2, phe = CommunityACO_get_pheromone(g2, vars2)
+	c2
 	calculate_modularity(g2, c2)
 	
 end
+
+# ╔═╡ 750d6c6d-9760-4914-b22a-a841b994ca4a
+phe
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -771,10 +793,13 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═0bbaaf25-4633-4a82-859e-db81068d680a
 # ╠═8df82f08-118b-406a-a0a4-c5699590f9df
 # ╠═4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
+# ╠═481e0c2b-00f6-408c-b829-1872415892e7
+# ╠═64a08561-b1c3-4d42-b58f-85bb8486460b
 # ╠═a42d4687-b1d2-4a9d-b882-7d648422a72c
 # ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
 # ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 # ╠═18788290-bc3a-4ef9-ae9b-9034957228f5
+# ╠═750d6c6d-9760-4914-b22a-a841b994ca4a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

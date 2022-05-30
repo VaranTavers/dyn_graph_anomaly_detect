@@ -50,13 +50,16 @@ begin
 	vars = ACOSettings(
 		1, # α
 		2, # β
-		100, # number_of_ants
+		30, # number_of_ants
 		0.8, # ρ
-		0.005, # ϵ
+		0.05, # ϵ
 		100, # max_number_of_iterations
 		300 # starting_pheromone_ammount
 	)
 end
+
+# ╔═╡ a7af1bf2-c171-4917-ba42-b5ef94573e24
+number_of_runs = 20
 
 # ╔═╡ fcebc348-7419-4055-aea2-58be96e065c8
 md"""
@@ -67,10 +70,10 @@ md"""
 gz = loadgraph("graphs/zachary.lgz", SWGFormat())
 
 # ╔═╡ 56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
-cz = Folds.map(_ -> CommunityACO(gz, vars), 1:20)
+cz = Folds.map(_ -> CommunityACO(gz, vars), 1:number_of_runs)
 
 # ╔═╡ f91a1596-e030-4eab-81f9-1b3a5c851440
-mz = sum(Folds.map(x -> calculate_modularity(gz, x), cz))/20
+mz = sum(Folds.map(x -> calculate_modularity(gz, x), cz))/number_of_runs
 
 # ╔═╡ 2be67f9f-df4e-4be7-a05d-566e451af955
 md"""
@@ -83,10 +86,10 @@ The modularity is close to the one in the Chang Honghao Paper (0,420)
 gd = loadgraph("graphs/dolphins.lgz", SWGFormat())
 
 # ╔═╡ 22f24ab8-bb49-4593-a759-57d7f247a3ec
-cd = Folds.map(_ -> CommunityACO(gd, vars), 1:20)
+cd = Folds.map(_ -> CommunityACO(gd, vars), 1:number_of_runs)
 
 # ╔═╡ 1db6765a-1895-4d04-9883-fa69ce5dfd12
-m_d = sum(Folds.map(x -> calculate_modularity(gd, x), cd))/20
+m_d = sum(Folds.map(x -> calculate_modularity(gd, x), cd))/number_of_runs
 
 # ╔═╡ 0e05385b-3070-4d7d-807a-3aebd6d54c9a
 md"""
@@ -101,10 +104,10 @@ Runs in around 10 s
 gf = loadgraph("graphs/football.lgz", SWGFormat())
 
 # ╔═╡ 4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
-cf = Folds.map(_ -> CommunityACO(gf, vars), 1:20)
+cf = Folds.map(_ -> CommunityACO(gf, vars), 1:number_of_runs)
 
 # ╔═╡ 38b3a27e-c999-4562-81e6-39d1ea5426fe
-mf = sum(Folds.map(x -> calculate_modularity(gf, x), cf))/20
+mf = sum(Folds.map(x -> calculate_modularity(gf, x), cf))/number_of_runs
 
 # ╔═╡ 3d75856c-926c-46ea-96bc-27221c4d9465
 md"""
@@ -119,10 +122,10 @@ Runs in around 56s
 gb = loadgraph("graphs/books.lgz", SWGFormat())
 
 # ╔═╡ b10865d6-b996-443c-8fcb-a3534ccd970c
-cb = Folds.map(_ -> CommunityACO(gb, vars), 1:20)
+cb = Folds.map(_ -> CommunityACO(gb, vars), 1:number_of_runs)
 
 # ╔═╡ 84eef671-a5c7-44fc-83d1-a71ab6e195b0
-mb = sum(Folds.map(x -> calculate_modularity(gb, x), cb))/20
+mb = sum(Folds.map(x -> calculate_modularity(gb, x), cb))/number_of_runs
 
 # ╔═╡ 800efd73-6172-4fdb-bfe0-f2b68aa4f953
 md"""
@@ -153,7 +156,6 @@ calculate_average_nmi(real, preds) = sum(Folds.map(x -> normalized_mutual_inform
 begin
 	graphs = [loadgraph("LFR/network$i.lgz", SWGFormat()) for i in 1:12]
 	communities_real = [CSV.read("LFR/community$i.dat", DataFrame, header=false)[!, "Column1"] for i in 1:12]
-	number_of_runs = 1
 
 	communities_pred = collect(Folds.map(x -> apply_aco_multiple(x, number_of_runs), graphs))
 end
@@ -174,17 +176,14 @@ end
 # ╔═╡ 94018f1f-7bb7-4b2f-b518-c2eeb6e5c195
 mat = [1:12 modularities nmis]
 
-# ╔═╡ 68ddb2bb-c60f-43bb-9c8c-940c48f85d61
-CSV.write("09.csv", DataFrame(mat, :auto))
+# ╔═╡ 094fbf94-3cb3-4ccb-89c9-3b2dfc0b60a8
+communities_py = [CSV.read("../aa/pycom$i.dat", DataFrame, header=false)[2:end, "Column1"] for i in 1:11]
 
-# ╔═╡ f6832592-9862-432f-b280-e15167fd8e43
-communities_py = [Matrix(CSV.read("aa/pycom$i.dat", DataFrame, header=false))[2:end] for i in 1:11]
+# ╔═╡ 6b377173-b1ad-4a93-a59c-bb9d15210f7d
+nmi_py = [normalized_mutual_information(communities_real[i], communities_py[i]) for i in 1:11]
 
-# ╔═╡ cdd53e1c-ddb5-4df9-80eb-78b55f46b294
-communities_py[1]
-
-# ╔═╡ 04072e7d-6048-4bbe-8e7b-562446b32773
-nmis_py = Folds.map(x -> normalized_mutual_information(communities_real[x], communities_py[x]), 1:11)
+# ╔═╡ c6e27064-ef62-461c-8556-b9832a0265ff
+normalized_mutual_information(communities_real[1], communities_py[1])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1283,6 +1282,7 @@ version = "0.9.1+5"
 # ╠═8c7c002b-8df5-42a5-bbbb-ef542aa267d3
 # ╟─8b2e3cd3-fb5d-4a81-8cf4-27b956088bab
 # ╠═8b130d9c-5712-45cb-8486-d07a1a98a894
+# ╠═a7af1bf2-c171-4917-ba42-b5ef94573e24
 # ╟─fcebc348-7419-4055-aea2-58be96e065c8
 # ╠═a55bd0fb-4983-44f1-8140-699430a2cc1f
 # ╠═56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
@@ -1308,9 +1308,8 @@ version = "0.9.1+5"
 # ╠═d8684484-7770-48cc-bb00-43ad8a1067ed
 # ╠═bd674523-d245-4a7f-96c2-8d6e4c9d2826
 # ╠═94018f1f-7bb7-4b2f-b518-c2eeb6e5c195
-# ╠═68ddb2bb-c60f-43bb-9c8c-940c48f85d61
-# ╠═f6832592-9862-432f-b280-e15167fd8e43
-# ╠═cdd53e1c-ddb5-4df9-80eb-78b55f46b294
-# ╠═04072e7d-6048-4bbe-8e7b-562446b32773
+# ╠═094fbf94-3cb3-4ccb-89c9-3b2dfc0b60a8
+# ╠═6b377173-b1ad-4a93-a59c-bb9d15210f7d
+# ╠═c6e27064-ef62-461c-8556-b9832a0265ff
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

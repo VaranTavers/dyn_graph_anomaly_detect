@@ -64,42 +64,33 @@ md"""
 """
 
 # ╔═╡ adaaeb50-f117-45ff-934b-890be5e972fe
-# Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
-	graph, n, η, τ = spread(inner)
-
-	# graph.weights[i,j] * 
-	p = [(τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
-	if maximum(p) == 0
+# Get chosen point
+function get_chosen_point(pM, i, r)
+	if maximum(pM[i, :]) == 0
 		p[i] = 1
 	end
-	s_p = sum(p)
 
-	p ./= s_p
-
-	p
+	findfirst(pM[i, :] .> r)
 end
 
 # ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
 # Constructs a new solution
-function generate_s(inner::ACOInner, vars::ACOSettings)
-	graph, n, η, τ = spread(inner)
+function generate_s(n, pM)
+	r = rand(n)
 	
-	[sample(calculate_probabilities(inner, i, vars)) for i in 1:n]
+	[get_chosen_point(pM, i, r[i]) for i in 1:n]
 end
 
 # ╔═╡ ca49cc0e-b106-4dff-ad64-0ae5a568920c
 # Constructs a new solution
-function generate_s_avoid_duplicate(inner::ACOInner, vars::ACOSettings)
-	graph, n, η, τ = spread(inner)
-	
+function generate_s_avoid_duplicate(n, pM)
 	s = zeros(Int32, n)
 
 	for i in 1:n
 		j = 0
-		res = sample(calculate_probabilities(inner, i, vars))
+		res = get_chosen_point(pM, i, rand())
 		while s[res] == i && j < 100
-			res = sample(calculate_probabilities(inner, i, vars))
+			res = get_chosen_point(pM, i, rand())
 			j += 1
 		end
 		s[i] = res
@@ -110,7 +101,8 @@ end
 
 # ╔═╡ aa8314fd-ab17-4e23-9e83-dc79a6f69209
 function choose_iteration_best(inner::ACOInner, settings::ACOSettings, iterations)
-	points = Folds.map(x -> settings.eval_f(inner.graph, settings.compute_solution(inner.graph, x)), iterations)
+	solutions = Folds.map(x -> settings.compute_solution(inner.n, x), iterations)
+	points = Folds.map(x -> settings.eval_f(inner.graph, x), solutions)
 	index = argmax(points)
 	(iterations[index], points[index])
 end
@@ -212,18 +204,23 @@ function ACO(graph, vars::ACOSettings, η, τ; k = 0)
 	# While termination condition not met
 	for i in 1:vars.max_number_of_iterations
 		# Construct new solution s according to Eq. 2
-		
+
+		# Precalculating the probabilities results in a 2s time improvement.
+		probM = inner.τ .^ vars.α .* inner.η .^ vars.β
+		probM ./= sum(probM, dims=2)
+		probM = cumsum(probM, dims=2)
+
 		if i % 3 < 2
-			S = Folds.map(x -> generate_s(inner, vars), 1:vars.number_of_ants)
+			S = Folds.map(x -> generate_s(n, probM), 1:vars.number_of_ants)
 		else
-			S = Folds.map(x -> generate_s_avoid_duplicate(inner, vars), 1:vars.number_of_ants)
+			S = Folds.map(x -> generate_s_avoid_duplicate(n, probM), 1:vars.number_of_ants)
 		end
 
 		# Update iteration best
 		(sib, sib_val) = choose_iteration_best(inner, vars, S)
 		if sib_val > sgb_val
-			sgb_val = sib_val
-			sgb = sib
+			sgb_val = copy(sib_val)
+			sgb = copy(sib)
 			
 			# Compute pheromone trail limits
 			τ_max = sgb_val / (1 - vars.ρ)
@@ -233,17 +230,17 @@ function ACO(graph, vars::ACOSettings, η, τ; k = 0)
 		# TODO: test with matrix sum
 		τ .*= vars.ρ
 		for (a, b) in enumerate(sib)
-			if sib[b] != a || a < b
+			# if sib[b] != a || a < b
 				τ[a, b] += sib_val
-				τ[b, a] += sib_val
-			end
+				# τ[b, a] += sib_val
+			# end
 		end
 		τ = min.(τ, τ_max)
 		τ = max.(τ, τ_min)
 
 	end
 	
-	reduce_number_of_communities(graph, vars.eval_f, vars.compute_solution(inner.graph, sgb), k), τ
+	reduce_number_of_communities(graph, vars.eval_f, vars.compute_solution(inner.n, sgb), k), τ
 end
 
 # ╔═╡ 8c6beaf2-f0e0-4d48-b593-06bcdba36455
