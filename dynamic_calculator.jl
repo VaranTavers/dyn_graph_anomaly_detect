@@ -164,7 +164,7 @@ colors = distinguishable_colors(num_of_relabeled_communities + 1)
 
 # ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 begin
-	layout=(args...)->spring_layout(args...; C=10)
+	layout=(args...)->spring_layout(args...; C=5)
 	plots = [gplot(graphs[i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[i]), nodefillc=colors[communities_pred2[i] .+ 1]) for i in 1:length(graphs)];
 	1
 end
@@ -180,18 +180,6 @@ Threads.nthreads()
 
 # ╔═╡ a8eaceca-6283-4052-ad19-e183ae25748a
 [calculate_merging(communities_pred2, community_size_lists, i) for i in 1:num_of_relabeled_communities]
-
-# ╔═╡ 2ecd4c9d-c84d-4d37-b431-7113f3101f79
-md"""
-Chosen community:
-$(@bind c_chosen Scrubbable(1:num_of_relabeled_communities))
-"""
-
-# ╔═╡ b1ada24b-6218-49b9-8fed-f0f367170997
-findall(x-> x == c_chosen, communities_pred2[g_i])
-
-# ╔═╡ 878704e3-005a-4a67-9bed-977ba3bfbf96
-Tables.table(matrix) |> CSV.write("logs/simple.csv")
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -906,13 +894,10 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═075a11cc-395b-4d88-99a8-1d13c0bc1967
 # ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
 # ╠═df1bab46-1112-498d-961d-da9b45aa0461
-# ╟─9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
+# ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 # ╠═17e167af-485d-4069-b421-6cef0e84ac64
 # ╠═e1432419-b674-4ae0-96a0-da9a74b842e3
 # ╠═93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
 # ╠═a8eaceca-6283-4052-ad19-e183ae25748a
-# ╠═2ecd4c9d-c84d-4d37-b431-7113f3101f79
-# ╠═b1ada24b-6218-49b9-8fed-f0f367170997
-# ╠═878704e3-005a-4a67-9bed-977ba3bfbf96
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

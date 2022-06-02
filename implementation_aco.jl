@@ -67,7 +67,7 @@ md"""
 # Get chosen point
 function get_chosen_point(pM, i, r)
 	if maximum(pM[i, :]) == 0
-		p[i] = 1
+		return i
 	end
 
 	findfirst(pM[i, :] .> r)
@@ -101,7 +101,8 @@ end
 
 # ╔═╡ aa8314fd-ab17-4e23-9e83-dc79a6f69209
 function choose_iteration_best(inner::ACOInner, settings::ACOSettings, iterations)
-	solutions = Folds.map(x -> settings.compute_solution(inner.n, x), iterations)
+	filtered_iter = filter(x -> x != nothing, iterations)
+	solutions = Folds.map(x -> settings.compute_solution(inner.n, x), filtered_iter)
 	points = Folds.map(x -> settings.eval_f(inner.graph, x), solutions)
 	index = argmax(points)
 	(iterations[index], points[index])
@@ -176,9 +177,6 @@ function reduce_number_of_communities(graph, eval_f, c, n)
 	while number_of_communitites(p) > n && iter < 100
 		p = get_best_combination(graph, eval_f, p)
 		iter += 1
-		if iter % 10 == 0
-			@show iter
-		end
 	end
 
 	p

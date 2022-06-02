@@ -227,8 +227,8 @@ end
 # We can calculate the number of common neighbors faster if we multiply the incidency matrix with it's tranposed matrix.
 function get_η_common_neighbors(g2)
 	M = ceil.(abs.(g2.weights))
-	M2 = M * M' / nv(g2)
-	[i != j ? (g2.weights[i, j] != 0 ? M2[i, j] : 0.0) : 0.001 for i in 1:nv(g2), j in 1:nv(g2)]
+	M2 = (M * M' .+ 1) / nv(g2)
+	[i != j ? (g2.weights[i, j] != 0 ? M2[i, j] : 0.0) : 0.00001 for i in 1:nv(g2), j in 1:nv(g2)]
 end
 
 # ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
@@ -300,7 +300,16 @@ begin
 end
 
 # ╔═╡ 750d6c6d-9760-4914-b22a-a841b994ca4a
-phe
+phe[7, :]
+
+# ╔═╡ 5a70e933-f62e-4008-a683-a36e58b7da6b
+begin
+	g3 = loadgraph("dynamic_graphs/syntetic/school_test/school_test52.lgz", SWGFormat())
+	
+	c3 = CommunityACO(g3, vars2)
+	calculate_modularity(g3, c3)
+	
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -801,5 +810,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 # ╠═18788290-bc3a-4ef9-ae9b-9034957228f5
 # ╠═750d6c6d-9760-4914-b22a-a841b994ca4a
+# ╠═5a70e933-f62e-4008-a683-a36e58b7da6b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
