@@ -5,7 +5,10 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 7e546c44-4e50-412f-9144-bb2056d749ff
-using Folds
+begin
+	using Folds
+	using Statistics
+end
 
 # ╔═╡ 91d589d0-a609-11ec-2dbe-bb52470686eb
 function calculate_community_similarity(c1, c2, i, j)
@@ -54,14 +57,16 @@ function relabel_communities(c_list, p; changing=false, similarity_f=calculate_c
 	
 	for i in 2:length(ret)
 		c = ret[i]
-		c[c .> 0] .+= length(communities)
+		old_l = length(communities)
+		c[c .> 0] .+= old_l
 		n_c = maximum(c)
 		translation = zeros(n_c)
-		for c_i in (length(communities) + 1):n_c
-			scores = Folds.map(x -> calc_sim(ret, (c_i, i), x, similarity_f), enumerate(communities))
+		for c_i in (old_l + 1):n_c
+			scores = Folds.map(x -> calc_sim(ret, x, (c_i, i), similarity_f), enumerate(communities))
 			max_score_index = argmax(scores)
 			if scores[max_score_index] < p
-				append!(communities, i)
+				push!(communities, i)
+				c[c .== c_i] .= length(communities)
 			else
 				c[c .== c_i] .= max_score_index
 				if changing
@@ -121,6 +126,18 @@ function calculate_unusual_size_change(c_s, baseline)
 	]
 end
 
+# ╔═╡ bdc427d8-7b17-4935-9995-2dd7e1937658
+function calculate_unusual_size_change(c_s)
+	baseline = Statistics.mean(filter(x -> x > 0, c_s))
+	[
+		i == 0 ? 0 : (
+			(i - baseline) / baseline > 1 ? 1 :
+			(baseline - i) / baseline > 0.5 && i != 0 ? -1 : 0
+		)
+		for i in c_s
+	]
+end
+
 # ╔═╡ 8d11583f-eccf-45e0-8624-5f5158faf632
 function calculate_unusual_appearance(c_s, birth, death)
 	# If a community is not present in more than 10% of the point in time, it's every appearance is considered unusual, otherwise every appearance before "birth" or after "death" is considered unusual.
@@ -163,7 +180,7 @@ function get_best_composition(c_1, c_2, time, size_lists, goal_c)
 
 	communities_chosen = collect(filter2)
 	values = map(first, communities_chosen)
-	if sum(values) > 0.85
+	if sum(values) > 0.70
 		return collect(map(second, communities_chosen))
 	end
 
@@ -181,7 +198,7 @@ function calculate_splitting(communities_pred, size_lists, c_i)
 		end
 		res = get_best_composition(communities_pred[i], communities_pred[i + 1], i, size_lists, c_i)
 		if length(res) > 0
-			append!(result, (i, res))
+			push!(result, (i, res))
 		end
 	end
 
@@ -199,7 +216,7 @@ function calculate_merging(communities_pred, size_lists, c_i)
 		end
 		res = get_best_composition(communities_pred[i + 1], communities_pred[i], i + 1, size_lists, c_i)
 		if length(res) > 0
-			append!(result, (i, res))
+			push!(result, (i, res))
 		end
 	end
 
@@ -234,9 +251,10 @@ calculate_merging(reverse(test_split_communities), reverse.(test_split_size_list
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
-Folds = "~0.2.7"
+Folds = "~0.2.8"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -248,9 +266,9 @@ manifest_format = "2.0"
 
 [[deps.Accessors]]
 deps = ["Compat", "CompositionsBase", "ConstructionBase", "Future", "LinearAlgebra", "MacroTools", "Requires", "Test"]
-git-tree-sha1 = "2bba2aa45df94e95b1a9c2405d7cfc3d60281db8"
+git-tree-sha1 = "0264a938934447408c7f0be8985afec2a2237af4"
 uuid = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
-version = "0.1.9"
+version = "0.1.11"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -285,9 +303,9 @@ version = "0.1.1"
 
 [[deps.Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "96b0bc6c52df76506efc8a441c6cf1adcb1babc4"
+git-tree-sha1 = "9be8be1d8a6f44b96482c8af52238ea7987da3e3"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.42.0"
+version = "3.45.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -305,9 +323,9 @@ uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
 version = "1.3.0"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "cc70b17275652eb47bc9e5f81635981f13cea5c8"
+git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -335,11 +353,16 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
+[[deps.ExternalDocstrings]]
+git-tree-sha1 = "1224740fc4d07c989949e1c1b508ebd49a65a5f6"
+uuid = "e189563c-0753-4f5e-ad5c-be4293c83fb4"
+version = "0.1.1"
+
 [[deps.Folds]]
-deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
-git-tree-sha1 = "8559de3011264727473c96e1f794f9ddcac2bb1c"
+deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "ExternalDocstrings", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
+git-tree-sha1 = "638109532de382a1f99b1aae1ca8b5d08515d85a"
 uuid = "41a02a25-b8f0-4f67-bc48-60067656b558"
-version = "0.2.7"
+version = "0.2.8"
 
 [[deps.Future]]
 deps = ["Random"]
@@ -563,6 +586,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═5be87169-43f1-4ddf-9c5c-9af5d4504804
 # ╠═c8a96dcb-65ae-4562-a05d-a6d286d626cc
 # ╠═d169f9fd-fd0b-4209-967e-fd834439cb28
+# ╠═bdc427d8-7b17-4935-9995-2dd7e1937658
 # ╠═8d11583f-eccf-45e0-8624-5f5158faf632
 # ╠═629914f9-6411-417f-9eb8-b812a47551a1
 # ╠═b92c7770-e5f0-4818-8b68-ee685e50123d

@@ -26,6 +26,7 @@ begin
 	using Colors
 	using StatsBase
 	using DSP
+	using Statistics
 end
 
 # ╔═╡ d4732069-a523-467e-8970-e67e51b7fe57
@@ -52,13 +53,19 @@ end
 # ╔═╡ 6df4dd31-d769-4336-a142-cdfd1585f29b
 begin
 	com_func_jl = ingredients("./community_functions.jl")
-	import .com_func_jl: relabel_communities, calculate_merging, calculate_splitting, calculate_unusual_appearance, calculate_community_activation, calculate_community_deactivation
+	import .com_func_jl: relabel_communities, calculate_merging, calculate_splitting, calculate_unusual_appearance, calculate_community_activation, calculate_community_deactivation, calculate_community_similarity2
 end
 
 # ╔═╡ 467be1e9-1fe0-4f52-baeb-efb21c89c693
 begin
 	node_func_jl = ingredients("./node_functions.jl")
 	import .node_func_jl: calculate_anomaly_vector_quantity, calculate_anomaly_vector_category, detect_change_anomaly_vector, detect_outlier_anomaly_vector
+end
+
+# ╔═╡ 81bf24e5-4b7b-40eb-b6b0-28a8ba9089fa
+begin
+	anomaly_calc_jl = ingredients("./anomaly_calculator.jl")
+	import .anomaly_calc_jl: getCommunityAnomaliesByTimestamp
 end
 
 # ╔═╡ 2fb037ea-78c1-470c-8364-9a132825c126
@@ -120,8 +127,11 @@ else
 	communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
 end
 
+# ╔═╡ d09485a6-aff2-4e45-a02f-e452f4414799
+calculate_community_similarity2(communities_pred[55], communities_pred[56], 15, 15)
+
 # ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
-communities_pred2 = relabel_communities(communities_pred, 0.6; changing=evolve)
+communities_pred2 = relabel_communities(communities_pred, 0.7; changing=evolve)
 
 # ╔═╡ b09d6945-b3c9-482a-883f-c48126c36244
 matrix = mapreduce(permutedims, vcat, communities_pred2);
@@ -181,6 +191,9 @@ Threads.nthreads()
 # ╔═╡ a8eaceca-6283-4052-ad19-e183ae25748a
 [calculate_merging(communities_pred2, community_size_lists, i) for i in 1:num_of_relabeled_communities]
 
+# ╔═╡ a5f00865-bc76-4f79-bf1f-43239c025304
+getCommunityAnomaliesByTimestamp([], communities_pred2, community_size_lists)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -193,6 +206,7 @@ GraphPlot = "a2cc645c-3eea-5389-862e-a155d0052231"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
@@ -872,6 +886,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═102b3c2a-9506-4a59-8c8d-e38692e22742
 # ╠═6df4dd31-d769-4336-a142-cdfd1585f29b
 # ╠═467be1e9-1fe0-4f52-baeb-efb21c89c693
+# ╠═81bf24e5-4b7b-40eb-b6b0-28a8ba9089fa
 # ╟─2fb037ea-78c1-470c-8364-9a132825c126
 # ╟─326693d9-210c-457c-a251-bb1c2bbfc596
 # ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
@@ -881,6 +896,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═27207be6-5031-4001-a98d-cb356b7ace68
 # ╠═9903f2b0-90a2-4847-a00f-f033d79e2a12
 # ╠═f891fd6d-a77e-46bf-b677-e500459e4658
+# ╠═d09485a6-aff2-4e45-a02f-e452f4414799
 # ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
 # ╠═b09d6945-b3c9-482a-883f-c48126c36244
 # ╠═b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
@@ -899,5 +915,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═e1432419-b674-4ae0-96a0-da9a74b842e3
 # ╠═93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
 # ╠═a8eaceca-6283-4052-ad19-e183ae25748a
+# ╠═a5f00865-bc76-4f79-bf1f-43239c025304
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

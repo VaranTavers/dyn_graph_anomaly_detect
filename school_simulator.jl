@@ -66,7 +66,7 @@ $(@bind number_of_classes_per_day Scrubbable(3:8))
 people_classes = rand(collect(1:number_of_classes), number_of_people)
 
 # ╔═╡ cbffd573-71dc-4f2b-80ba-ba1240f1d56e
-people_groups = map(x -> rand(collect(x:((x+1)*number_of_friend_groups - 1))) , people_classes)
+people_groups = map(x -> rand(collect(((x-1) * number_of_friend_groups + 1):x*number_of_friend_groups)) , people_classes)
 
 # ╔═╡ 6cdb2cba-9925-4c37-a573-540a014941a4
 groups_places = rand(collect(1:number_of_places), number_of_friend_groups * number_of_classes)
