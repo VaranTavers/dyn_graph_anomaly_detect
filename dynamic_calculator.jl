@@ -50,6 +50,12 @@ begin
 	import .implementation_jl: CommunityACO, calculate_modularity, ACOSettings, normalized_mutual_information, CommunityACO_get_pheromone
 end
 
+# ╔═╡ e9e50365-300c-49bb-bf85-89de4b4c692a
+begin
+	implementation_heavy_jl = ingredients("./implementation_heavy.jl")
+	import .implementation_heavy_jl: HeaviestACO
+end
+
 # ╔═╡ 6df4dd31-d769-4336-a142-cdfd1585f29b
 begin
 	com_func_jl = ingredients("./community_functions.jl")
@@ -65,7 +71,7 @@ end
 # ╔═╡ 81bf24e5-4b7b-40eb-b6b0-28a8ba9089fa
 begin
 	anomaly_calc_jl = ingredients("./anomaly_calculator.jl")
-	import .anomaly_calc_jl: getCommunityAnomaliesByTimestamp
+	import .anomaly_calc_jl: getCommunityAnomaliesByTimestamp, getVertexAnomaliesByTimestamp,  getHeaviestSubgraphAnomaliesByTimestamp
 end
 
 # ╔═╡ 2fb037ea-78c1-470c-8364-9a132825c126
@@ -127,9 +133,6 @@ else
 	communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
 end
 
-# ╔═╡ d09485a6-aff2-4e45-a02f-e452f4414799
-calculate_community_similarity2(communities_pred[55], communities_pred[56], 15, 15)
-
 # ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
 communities_pred2 = relabel_communities(communities_pred, 0.7; changing=evolve)
 
@@ -142,29 +145,22 @@ num_of_relabeled_communities = maximum(maximum.(communities_pred2))
 # ╔═╡ f14c9452-72fe-4ed7-905c-ed7b2dd55b19
 community_size_lists = [map(x -> count(x .== i), communities_pred2) for i in 1:num_of_relabeled_communities]
 
-# ╔═╡ 6cdb9c6f-a929-4eb1-aa57-42d41776ed22
-calculate_unusual_appearance(
-	community_size_lists[1],
-	calculate_community_activation(community_size_lists[1]),
-	calculate_community_deactivation(community_size_lists[1]))
+# ╔═╡ 0bbda310-2c0d-4f32-9ecc-762c37a91d46
+# Heavy calculations have to be done for bigger graphs, so we'll lower the parameters for this application.
+begin
+	vars2 = ACOSettings(
+		1, # α
+		2, # β
+		10, # number_of_ants
+		0.8, # ρ
+		0.005, # ϵ
+		50, # max_number_of_iterations
+		300 # starting_pheromone_ammount
+	)
+end
 
-# ╔═╡ 1c6b9f15-2805-4eac-bd31-f1630fd8434c
-c_deaths = [calculate_community_activation(community_size_lists[i]) for i in 1:num_of_relabeled_communities]
-
-# ╔═╡ c8c14745-75da-4d17-8227-751d13e62e75
-matrix
-
-# ╔═╡ f7e5be3d-5878-43b1-a716-a517bfda5228
-_, n = size(matrix)
-
-# ╔═╡ 77e04068-4905-4edf-9c65-3f441c553bb8
-point_anomaly = [ calculate_anomaly_vector_category(matrix[:, i], 5) for i in 1:n]
-
-# ╔═╡ 86c6b192-0556-4b04-8335-0728a799b125
-p_outlier = Folds.map(x -> detect_outlier_anomaly_vector(x, 5), point_anomaly)
-
-# ╔═╡ 075a11cc-395b-4d88-99a8-1d13c0bc1967
-p_change = Folds.map(x -> detect_change_anomaly_vector(x, 5), point_anomaly)
+# ╔═╡ 1509138b-32dd-4a8c-9eca-5fa0432bc584
+heaviest_pred = Folds.map(x -> HeaviestACO(x, vars2), graphs)
 
 # ╔═╡ 31c046f1-5b2b-4963-99a5-6ab4924cc487
 @bind g_i Scrubbable(1:length(graphs))
@@ -185,14 +181,19 @@ colors[communities_pred2[g_i] .+ 1]
 # ╔═╡ e1432419-b674-4ae0-96a0-da9a74b842e3
 plots[g_i]
 
-# ╔═╡ 93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
-Threads.nthreads()
-
-# ╔═╡ a8eaceca-6283-4052-ad19-e183ae25748a
-[calculate_merging(communities_pred2, community_size_lists, i) for i in 1:num_of_relabeled_communities]
+# ╔═╡ c5840aa0-8ed7-4e0a-a3dc-0e46ea7cf6bf
+begin
+	gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=[ j ? colors[2] : colors[1] for j in heaviest_pred[g_i]])
+end
 
 # ╔═╡ a5f00865-bc76-4f79-bf1f-43239c025304
 getCommunityAnomaliesByTimestamp([], communities_pred2, community_size_lists)
+
+# ╔═╡ adad9aef-2541-412b-ad00-4da396f79763
+getVertexAnomaliesByTimestamp(matrix)
+
+# ╔═╡ a1b96149-94bb-4ff4-a9c8-db813d85c481
+getHeaviestSubgraphAnomaliesByTimestamp(graphs, heaviest_pred)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -884,6 +885,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═4d1c9e56-9a19-11ec-176a-e17ab3202d23
 # ╠═d4732069-a523-467e-8970-e67e51b7fe57
 # ╠═102b3c2a-9506-4a59-8c8d-e38692e22742
+# ╠═e9e50365-300c-49bb-bf85-89de4b4c692a
 # ╠═6df4dd31-d769-4336-a142-cdfd1585f29b
 # ╠═467be1e9-1fe0-4f52-baeb-efb21c89c693
 # ╠═81bf24e5-4b7b-40eb-b6b0-28a8ba9089fa
@@ -896,25 +898,20 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═27207be6-5031-4001-a98d-cb356b7ace68
 # ╠═9903f2b0-90a2-4847-a00f-f033d79e2a12
 # ╠═f891fd6d-a77e-46bf-b677-e500459e4658
-# ╠═d09485a6-aff2-4e45-a02f-e452f4414799
 # ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
 # ╠═b09d6945-b3c9-482a-883f-c48126c36244
 # ╠═b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
 # ╠═f14c9452-72fe-4ed7-905c-ed7b2dd55b19
-# ╠═6cdb9c6f-a929-4eb1-aa57-42d41776ed22
-# ╠═1c6b9f15-2805-4eac-bd31-f1630fd8434c
-# ╠═c8c14745-75da-4d17-8227-751d13e62e75
-# ╠═f7e5be3d-5878-43b1-a716-a517bfda5228
-# ╠═77e04068-4905-4edf-9c65-3f441c553bb8
-# ╠═86c6b192-0556-4b04-8335-0728a799b125
-# ╠═075a11cc-395b-4d88-99a8-1d13c0bc1967
+# ╠═0bbda310-2c0d-4f32-9ecc-762c37a91d46
+# ╠═1509138b-32dd-4a8c-9eca-5fa0432bc584
 # ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
-# ╠═df1bab46-1112-498d-961d-da9b45aa0461
-# ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
-# ╠═17e167af-485d-4069-b421-6cef0e84ac64
+# ╟─df1bab46-1112-498d-961d-da9b45aa0461
+# ╟─9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
+# ╟─17e167af-485d-4069-b421-6cef0e84ac64
 # ╠═e1432419-b674-4ae0-96a0-da9a74b842e3
-# ╠═93e0f7f3-ba93-452f-96bf-bfcc1d0a6ed7
-# ╠═a8eaceca-6283-4052-ad19-e183ae25748a
+# ╠═c5840aa0-8ed7-4e0a-a3dc-0e46ea7cf6bf
 # ╠═a5f00865-bc76-4f79-bf1f-43239c025304
+# ╠═adad9aef-2541-412b-ad00-4da396f79763
+# ╠═a1b96149-94bb-4ff4-a9c8-db813d85c481
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

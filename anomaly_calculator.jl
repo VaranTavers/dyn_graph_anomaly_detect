@@ -108,23 +108,28 @@ function getTimestampVectorFromMergeVector(c, sizeLists, f)
 end
 
 # ╔═╡ b9ad6c45-e675-43b9-8e04-c1b68292b78a
-uaInnerMap((i, y)) = y ? i : 0
+uaOuterMap((i, y)) = map(x -> x ? i : 0, y)
+
+# ╔═╡ 55de6358-4a45-4364-b6e6-9949c5225d93
+function bitvecVectorToTimestampVector(l, activations)
+	activations = map(uaOuterMap, enumerate(activations))
+
+	activationMat = reduce(vcat, map(x -> x', activations))
+	[filter(x-> x != 0, activationMat[:, i]) for i in 1:l]
+end
 
 # ╔═╡ 690baeb6-6af9-41f7-bc57-0dee8e3fabb7
 function getAllUnusualAppearance(c, sizeLists)
 	n = maximum(maximum.(c))
 	l = length(sizeLists[1])
 
-	activations = [calculate_unusual_appearance(c[i], calculate_community_activation(c[i]), calculate_community_deactivation(c[i])) for i in 1:n]
-
-	activations = map(x -> map(uaInnerMap, enumerate(x)), activations)
-
-	activationMat = reduce(vcat, map(x -> x', activations))
-	[filter(x-> x != 0, activationMat[:, i]) for i in 1:l]
+	activations = [calculate_unusual_appearance(sizeLists[i], calculate_community_activation(sizeLists[i]), calculate_community_deactivation(sizeLists[i])) for i in 1:n]
+	
+	bitvecVectorToTimestampVector(l, activations)
 end
 
 # ╔═╡ 534f67eb-bb5b-465f-83d4-90e90cc2915b
-function getCommunityAnomaliesByTimestamp(g, c, sizeLists)
+function getCommunityAnomaliesByTimestamp(g, c, sizeLists)::CommunityAnomalies
 	CommunityAnomalies(
 		getTimestampVectorFromCommunityVector(c, sizeLists, calculate_community_activation),
 		getTimestampVectorFromCommunityVector(c, sizeLists, calculate_community_deactivation),
@@ -134,6 +139,111 @@ function getCommunityAnomaliesByTimestamp(g, c, sizeLists)
 		getAllUnusualAppearance(c, sizeLists),
 		getTimestampVectorFromMergeVector(c, sizeLists, calculate_merging),
 		getTimestampVectorFromMergeVector(c, sizeLists, calculate_splitting),
+	)
+end
+
+# ╔═╡ 24d3b01d-e9c4-4fe4-8955-e167be8f2c62
+md"""
+# Vertex based anomalies
+"""
+
+# ╔═╡ 578b9453-4327-485e-b639-0b724ba92334
+struct VertexAnomalies
+	outlier
+	change
+end
+
+# ╔═╡ 81b6bc8d-25fe-42a3-9d5d-94ee8101c287
+function getVertexAnomaliesByTimestamp(matrix; window_size=5)::VertexAnomalies
+	l, n = size(matrix)
+	point_anomaly = [ calculate_anomaly_vector_category(matrix[:, i], window_size) for i in 1:n]
+	p_outlier = Folds.map(x -> detect_outlier_anomaly_vector(x, window_size), point_anomaly)
+	p_change = Folds.map(x -> detect_change_anomaly_vector(x, window_size), point_anomaly)
+	
+	VertexAnomalies(
+		bitvecVectorToTimestampVector(l, p_outlier),
+		bitvecVectorToTimestampVector(l, p_change)
+	)
+end
+
+# ╔═╡ 6c54a61f-1191-4b42-8e3c-67471066143b
+md"""
+# Heaviest subgraph anomalies
+"""
+
+# ╔═╡ 2e4c4ebe-39dd-4062-bd15-e4f880e4d9d5
+struct HeaviesSubgraphAnomalies
+	vertex_join
+	vertex_leave
+	edge_join
+	edge_leave
+end
+
+# ╔═╡ ef91d00d-bd89-455d-9612-c4f2ad321888
+function transformBitvecVectorsToMatrices(gs, bitvecs)
+	@show typeof(gs)
+	n = nv(gs[1])
+	matrices = [zeros(n, n) for i in 1:length(bitvecs)]
+	edges_vecs = [collect(edges(g)) for g in gs]
+
+	for (i, bitvec) in enumerate(bitvecs)
+		for (j, isInIt) in enumerate(bitvec)
+			if isInIt
+				start = edges_vecs[i][j].src
+				dest = edges_vecs[i][j].dst
+				matrices[i][start, dest] = j
+				matrices[i][dest, start] = j
+			end
+		end
+	end
+
+	matrices
+end
+
+# ╔═╡ 04493078-0098-484a-84e6-d1486c995f6e
+function getVertexChangesVector(matrices)
+	isInHeaviest = map(x -> sign.(sum(x, dims=1))[:], matrices)
+
+	n = length(matrices)
+	v_join = [[] for i in 1:n]
+	v_leave = [[] for i in 1:n]
+	for i in 2:n
+		d = isInHeaviest[i] - isInHeaviest[i - 1]
+		# At the vertices where d is not 0 there was a change, if that change is negative, that vertex left the heaviest component, otherwise it joined it. We find all of those instances, and add the index of the vertices to the list at the given timeframe.
+		append!(v_leave[i], findall(x -> x < 0, d))
+		append!(v_join[i], findall(x -> x > 0, d))
+	end
+
+	(v_join, v_leave)
+end
+
+# ╔═╡ 20707814-5b46-44e0-9a7c-bd6a3a591bfd
+function getEdgeChangesVector(matrices)
+	isInHeaviest = map(x -> sign.(x), matrices)
+
+	n = length(matrices)
+	e_join = [[] for i in 1:n]
+	e_leave = [[] for i in 1:n]
+	for i in 2:n
+		d = isInHeaviest[i] - isInHeaviest[i - 1]
+		# At the vertices where d is not 0 there was a change, if that change is negative, that vertex left the heaviest component, otherwise it joined it. We find all of those instances, and add the index of the vertices to the list at the given timeframe.
+		append!(e_leave[i], map(x -> (x[1], x[2], matrices[i - 1][x[1], x[2]]), findall(x -> x < 0, d)))
+		append!(e_join[i], map(x -> (x[1], x[2], matrices[i][x[1], x[2]]), findall(x -> x < 0, d)))
+	end
+
+	(e_join, e_leave)
+end
+
+# ╔═╡ 9ecc4c31-96b6-484e-ba88-8f0d3f8bb8bd
+function getHeaviestSubgraphAnomaliesByTimestamp(gs, bitvecs)::HeaviesSubgraphAnomalies
+	matrices = transformBitvecVectorsToMatrices(gs, bitvecs)
+	v_join, v_leave = getVertexChangesVector(matrices)
+	e_join, e_leave = getEdgeChangesVector(matrices)
+	HeaviesSubgraphAnomalies(
+		v_join,
+		v_leave,
+		e_join,
+		e_leave
 	)
 end
 
@@ -847,7 +957,17 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═245ea8d9-410b-4508-812d-bdd45e20464d
 # ╠═c607733c-bee4-4d63-8ce5-8ae59d6c7793
 # ╠═b9ad6c45-e675-43b9-8e04-c1b68292b78a
+# ╠═55de6358-4a45-4364-b6e6-9949c5225d93
 # ╠═690baeb6-6af9-41f7-bc57-0dee8e3fabb7
 # ╠═534f67eb-bb5b-465f-83d4-90e90cc2915b
+# ╟─24d3b01d-e9c4-4fe4-8955-e167be8f2c62
+# ╠═578b9453-4327-485e-b639-0b724ba92334
+# ╠═81b6bc8d-25fe-42a3-9d5d-94ee8101c287
+# ╟─6c54a61f-1191-4b42-8e3c-67471066143b
+# ╠═2e4c4ebe-39dd-4062-bd15-e4f880e4d9d5
+# ╠═ef91d00d-bd89-455d-9612-c4f2ad321888
+# ╠═04493078-0098-484a-84e6-d1486c995f6e
+# ╠═20707814-5b46-44e0-9a7c-bd6a3a591bfd
+# ╠═9ecc4c31-96b6-484e-ba88-8f0d3f8bb8bd
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -75,7 +75,7 @@ end
 
 # ╔═╡ 467549ca-519a-4a84-98e7-9e78d93342a2
 # Constructs a new solution
-function generate_s(n, pM)
+function generate_s(n::Integer, pM::Matrix{Float64})
 	r = rand(n)
 	
 	[get_chosen_point(pM, i, r[i]) for i in 1:n]
@@ -200,13 +200,15 @@ function ACO(graph, vars::ACOSettings, η, τ; k = 0)
 	τ_min = 0
 	
 	# While termination condition not met
-	for i in 1:vars.max_number_of_iterations
+	 for i in 1:vars.max_number_of_iterations
 		# Construct new solution s according to Eq. 2
 
 		# Precalculating the probabilities results in a 2s time improvement.
 		probM = inner.τ .^ vars.α .* inner.η .^ vars.β
+		#probM = [inner.τ[i, j] ^ vars.α * inner.η[i, j] ^ vars.β for i in 1:n, j in 1:n]
 		probM ./= sum(probM, dims=2)
 		probM = cumsum(probM, dims=2)
+		
 
 		if i % 3 < 2
 			S = Folds.map(x -> generate_s(n, probM), 1:vars.number_of_ants)

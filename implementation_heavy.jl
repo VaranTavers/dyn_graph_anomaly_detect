@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -79,17 +79,11 @@ function calculate_η(graph)
 
 	η = [ calculate_weight_sum_of_edges(graph, i, j) for i in 1:n, j in 1:n]
 
-	weights = map(x -> x.weight, edges(graph))
-	if minimum(weights) < 0
-		η .-= minimum(weights)
-	end
-
 	η
 end
 
 # ╔═╡ b48ba4f0-f409-43c2-bde2-cb90acd5085d
 function calculate_heaviness(graph, c)
-	
 	number_of_communities = maximum(c)
 	g_edges = collect(edges(graph))
 	lengths = map(x -> g_edges[x].weight, 1:ne(graph))
@@ -99,11 +93,22 @@ function calculate_heaviness(graph, c)
 	maximum(weights_per_subg)
 end
 
+# ╔═╡ 5f90e01e-6c9f-47ed-b60d-b40519a8dc6d
+function inHeaviest(graph, c)
+	number_of_communities = maximum(c)
+	g_edges = collect(edges(graph))
+	lengths = map(x -> g_edges[x].weight, 1:ne(graph))
+
+	weights_per_subg = [sum(lengths[c .== i]) for i in 1:number_of_communities]
+	heaviest_com = argmax(weights_per_subg)
+
+	c .== heaviest_com
+end
+
 # ╔═╡ 705178d4-af4b-4104-a660-1de2ba77e81a
 # Built for bidirectional edges
 # Transforms the edge representation from generate_s to a community vector.
-function compute_solution(g, edges)
-	n = ne(g)
+function compute_solution(n, edges)
 	tmp_g = SimpleWeightedGraph(n)
 	for (a, b) in enumerate(edges)
 		add_edge!(tmp_g, a, b)
@@ -138,7 +143,7 @@ function compute_solution(g, edges)
 end
 
 # ╔═╡ 4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
-function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
+function copy_replace_funcs(vars_base, eval_f, c_s)
 	ACOSettings(
 		vars_base.α,
 		vars_base.β,
@@ -153,30 +158,34 @@ function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
 end
 
 # ╔═╡ a42d4687-b1d2-4a9d-b882-7d648422a72c
-function HeaviestACO(graph, vars_base::ACOSettings, τ; k=0)
+function HeaviestACO(graph, vars_base, τ)
 	η = calculate_η(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 
-	ACO(graph, vars, η, τ; k)
+	inHeaviest(graph, ACO(graph, vars, η, τ))
 end
 
 # ╔═╡ 29da4832-6d05-4dfa-8be9-0dd01893ede1
-function HeaviestACO(graph, vars_base::ACOSettings; k=0)
+function HeaviestACO(graph, vars_base)
 	η = calculate_η(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 
-	ACO(graph, vars, η; k)
+	lk = ACO(graph, vars, η)
+	
+	inHeaviest(graph, lk)
 end
 
 # ╔═╡ 72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
-function HeaviestACO_get_pheromone(graph, vars_base::ACOSettings; k=0)
+function HeaviestACO_get_pheromone(graph, vars_base)
 	η = calculate_η(graph)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 	
-	CommunityACO(graph, vars, η, τ; k=k)
+	r, τ = ACO_get_pheromone(graph, vars, η, τ)
+
+	inHeaviest(graph, r), τ
 end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
@@ -186,15 +195,22 @@ begin
 	vars = ACOSettings(
 			1, # α
 			2, # β
-			30, # number_of_ants
+			10, # number_of_ants
 			0.8, # ρ
 			0.005, # ϵ
-			100, # max_number_of_iterations
+			50, # max_number_of_iterations
 			3 # starting_pheromone_ammount
 		)
 	c = HeaviestACO(g, vars)
-	@show c
 	calculate_heaviness(g, c)
+	
+end
+
+# ╔═╡ 5fc10530-aad7-4d90-b3b6-0f0c3b4f3c30
+begin
+	g3 = loadgraph("dynamic_graphs/syntetic/school_test/school_test1.lgz", SWGFormat())
+	
+	c3 = HeaviestACO(g3, vars)
 	
 end
 
@@ -678,11 +694,13 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═354866db-7344-462b-a7ce-711cc316cfcb
 # ╠═a854518f-2b68-402c-a754-c20000504f0a
 # ╠═b48ba4f0-f409-43c2-bde2-cb90acd5085d
+# ╠═5f90e01e-6c9f-47ed-b60d-b40519a8dc6d
 # ╠═705178d4-af4b-4104-a660-1de2ba77e81a
 # ╠═4c4ae7b7-04c3-41a3-ba91-3db1f6522ea2
 # ╠═a42d4687-b1d2-4a9d-b882-7d648422a72c
 # ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
 # ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
+# ╠═5fc10530-aad7-4d90-b3b6-0f0c3b4f3c30
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

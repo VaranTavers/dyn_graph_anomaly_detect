@@ -180,7 +180,7 @@ function get_best_composition(c_1, c_2, time, size_lists, goal_c)
 
 	communities_chosen = collect(filter2)
 	values = map(first, communities_chosen)
-	if sum(values) > 0.70
+	if sum(values) > 0.70 && length(values) > 1
 		return collect(map(second, communities_chosen))
 	end
 
@@ -198,7 +198,7 @@ function calculate_splitting(communities_pred, size_lists, c_i)
 		end
 		res = get_best_composition(communities_pred[i], communities_pred[i + 1], i, size_lists, c_i)
 		if length(res) > 0
-			push!(result, (i, res))
+			push!(result, (i + 1, res))
 		end
 	end
 
@@ -216,7 +216,7 @@ function calculate_merging(communities_pred, size_lists, c_i)
 		end
 		res = get_best_composition(communities_pred[i + 1], communities_pred[i], i + 1, size_lists, c_i)
 		if length(res) > 0
-			push!(result, (i, res))
+			push!(result, (i + 1, res))
 		end
 	end
 
