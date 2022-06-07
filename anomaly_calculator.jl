@@ -46,6 +46,15 @@ begin
 	import .node_func_jl: calculate_anomaly_vector_quantity, calculate_anomaly_vector_category, detect_change_anomaly_vector, detect_outlier_anomaly_vector
 end
 
+# ╔═╡ 7f705794-aec3-4773-a128-abea248f7414
+fst((a, _)) = a
+
+# ╔═╡ 26b8a9da-4d7b-479e-b992-d361eeabec24
+snd((_, b)) = b
+
+# ╔═╡ 92d3389b-695b-44f5-abcf-7c8c33cf937c
+trd((_, _, c)) = c
+
 # ╔═╡ 1cc3031a-d5a4-420a-a366-70dcaea619ac
 md"""
 # Community level anomalies
@@ -70,12 +79,6 @@ function getTimestampVectorFromCommunityVector(c, sizeLists, f)
 
 	[findall(x -> x == i, c_a) for i in 1:length(c)]
 end
-
-# ╔═╡ 7f705794-aec3-4773-a128-abea248f7414
-fst((a, _)) = a
-
-# ╔═╡ 26b8a9da-4d7b-479e-b992-d361eeabec24
-snd((_, b)) = b
 
 # ╔═╡ 245ea8d9-410b-4508-812d-bdd45e20464d
 function getMergedAtT(i, m_vec, t)
@@ -142,6 +145,65 @@ function getCommunityAnomaliesByTimestamp(g, c, sizeLists)::CommunityAnomalies
 	)
 end
 
+# ╔═╡ 9a2805ab-4570-42cd-839f-49863a57e8a3
+function getPointAnomalyType(cA, t_i, c_i, c_prev)
+	if findfirst(x -> x == c_i, fst.(cA.merge[t_i])) != nothing  ||
+		findfirst(x -> x == c_prev, fst.(cA.split[t_i])) != nothing
+		return 5
+	end
+	if findfirst(x -> x == c_i, cA.activation[t_i]) != nothing ||
+		findfirst(x -> x == c_i, cA.creation[t_i]) != nothing
+		return 2
+	end
+	if findfirst(x -> x == c_prev, cA.deactivation[t_i]) != nothing  ||
+		findfirst(x -> x == c_prev, cA.disappearance[t_i]) != nothing
+		return 3
+	end
+	if findfirst(x -> x == c_i, cA.sizeChange[t_i]) != nothing  ||
+		findfirst(x -> x == c_i, cA.unusualAppearance[t_i]) != nothing
+		return 4
+	end
+	1
+end
+
+# ╔═╡ a2c1a27e-c556-4791-9773-a66b42619399
+function getCommunityAnomaliesText(com_anomaly, t_i)
+	com_str = ""
+
+	if length(com_anomaly.activation[t_i]) > 0
+		com_str *= """* The following communities have activated: $(com_anomaly.activation[t_i])\n\n"""
+	end
+	if length(com_anomaly.deactivation[t_i]) > 0
+		com_str *= "* The following communities have deactivated: $(com_anomaly.deactivation[t_i])\n\n"
+	end
+	if length(com_anomaly.creation[t_i]) > 0
+		com_str *= "* The following communities have formed: $(com_anomaly.creation[t_i])\n\n"
+	end
+	if length(com_anomaly.disappearance[t_i]) > 0
+		com_str *= "* The following communities have dissapeared: $(com_anomaly.disappearance[t_i])\n\n"
+	end
+	if length(com_anomaly.sizeChange[t_i]) > 0
+		com_str *= "* The following communities have changed drasticly: $(com_anomaly.sizeChange[t_i])\n\n"
+	end
+	if length(com_anomaly.unusualAppearance[t_i]) > 0
+		com_str *= "* The following communities have appeared unexpectedly: $(com_anomaly.unusualAppearance[t_i])\n\n"
+	end
+	if length(com_anomaly.sizeChange[t_i]) > 0
+		com_str *= "* The following communities have changed drasticly: $(com_anomaly.sizeChange[t_i])\n\n"
+	end
+	if length(com_anomaly.unusualAppearance[t_i]) > 0
+		com_str *= "* The following communities have appeared unexpectedly: $(com_anomaly.unusualAppearance[t_i])\n\n"
+	end
+	if length(com_anomaly.merge[t_i]) > 0
+		com_str *= "* The following communities have been created as a result of a merge: $(com_anomaly.merge[t_i])\n\n"
+	end
+	if length(com_anomaly.split[t_i]) > 0
+		com_str *= "* The following communities have been created as a result of a split: $(com_anomaly.split[t_i])\n\n"
+	end
+
+	com_str
+end
+
 # ╔═╡ 24d3b01d-e9c4-4fe4-8955-e167be8f2c62
 md"""
 # Vertex based anomalies
@@ -166,13 +228,33 @@ function getVertexAnomaliesByTimestamp(matrix; window_size=5)::VertexAnomalies
 	)
 end
 
+# ╔═╡ 76f312b7-8aff-402d-9ba8-2fc8d999a4ed
+function getAnomalyVertexPoints(vA::VertexAnomalies, t_i, n)
+	[findfirst(x -> x == i, vA.outlier[t_i]) != nothing ? 6 : (findfirst(x -> x == i, vA.change[t_i]) != nothing ? 7 : 1) for i in 1:n]
+end
+
+# ╔═╡ 42d11578-bb6c-45e5-8abe-c80fc8865203
+function getVertexAnomaliesText(vert_anomaly, t_i)
+	com_str = ""
+
+	if length(vert_anomaly.outlier[t_i]) > 0
+		com_str *= "* The following vertices have changed communities temporarily: $(vert_anomaly.outlier[t_i])\n\n"
+	end
+	if length(vert_anomaly.change[t_i]) > 0
+		com_str *= "* The following vertices have changed communities for longer periods of time: $(vert_anomaly.change[t_i])\n\n"
+	end
+
+
+	com_str
+end
+
 # ╔═╡ 6c54a61f-1191-4b42-8e3c-67471066143b
 md"""
 # Heaviest subgraph anomalies
 """
 
 # ╔═╡ 2e4c4ebe-39dd-4062-bd15-e4f880e4d9d5
-struct HeaviesSubgraphAnomalies
+struct HeaviestSubgraphAnomalies
 	vertex_join
 	vertex_leave
 	edge_join
@@ -181,7 +263,6 @@ end
 
 # ╔═╡ ef91d00d-bd89-455d-9612-c4f2ad321888
 function transformBitvecVectorsToMatrices(gs, bitvecs)
-	@show typeof(gs)
 	n = nv(gs[1])
 	matrices = [zeros(n, n) for i in 1:length(bitvecs)]
 	edges_vecs = [collect(edges(g)) for g in gs]
@@ -228,23 +309,155 @@ function getEdgeChangesVector(matrices)
 		d = isInHeaviest[i] - isInHeaviest[i - 1]
 		# At the vertices where d is not 0 there was a change, if that change is negative, that vertex left the heaviest component, otherwise it joined it. We find all of those instances, and add the index of the vertices to the list at the given timeframe.
 		append!(e_leave[i], map(x -> (x[1], x[2], matrices[i - 1][x[1], x[2]]), findall(x -> x < 0, d)))
-		append!(e_join[i], map(x -> (x[1], x[2], matrices[i][x[1], x[2]]), findall(x -> x < 0, d)))
+		append!(e_join[i], map(x -> (x[1], x[2], matrices[i][x[1], x[2]]), findall(x -> x > 0, d)))
 	end
 
 	(e_join, e_leave)
 end
 
 # ╔═╡ 9ecc4c31-96b6-484e-ba88-8f0d3f8bb8bd
-function getHeaviestSubgraphAnomaliesByTimestamp(gs, bitvecs)::HeaviesSubgraphAnomalies
+function getHeaviestSubgraphAnomaliesByTimestamp(gs, bitvecs)::HeaviestSubgraphAnomalies
 	matrices = transformBitvecVectorsToMatrices(gs, bitvecs)
 	v_join, v_leave = getVertexChangesVector(matrices)
 	e_join, e_leave = getEdgeChangesVector(matrices)
-	HeaviesSubgraphAnomalies(
+	HeaviestSubgraphAnomalies(
 		v_join,
 		v_leave,
 		e_join,
 		e_leave
 	)
+end
+
+# ╔═╡ fb54ee20-86c6-481f-afdb-6d5299cad1f1
+function getAnomalyHeaviestPoints(hsA, t_i, n)
+	[findfirst(x -> x == i, hsA.vertex_join[t_i]) != nothing ? 2 : (findfirst(x -> x == i, hsA.vertex_leave[t_i]) != nothing ? 3 : 1) for i in 1:n]
+end
+
+# ╔═╡ a6b68752-059c-4c13-aa1d-f9f93c905353
+function getAnomalyHeaviestEdges(hsA, t_i, n)
+	[findfirst(x -> x == i, trd.(hsA.edge_join[t_i])) != nothing ? 2 : 1 for i in 1:n]
+end
+
+# ╔═╡ 814d8747-096f-467e-aad7-d38f2096c3c3
+function getHeaviestAnomaliesText(h_anomaly, t_i)
+	com_str = ""
+
+	if length(h_anomaly.vertex_join[t_i]) > 0
+		com_str *= "* The following vertices are now part of the heaviest subgraph: $(h_anomaly.vertex_join[t_i])\n\n"
+	end
+	if length(h_anomaly.vertex_leave[t_i]) > 0
+		com_str *= "* The following vertices are no longer a part of the heaviest subgraph: $(h_anomaly.vertex_leave[t_i])\n\n"
+	end
+	if length(h_anomaly.edge_join[t_i]) > 0
+		com_str *= "* The following edges are now part of the heaviest subgraph: $(h_anomaly.edge_join[t_i])\n\n"
+	end
+	if length(h_anomaly.edge_leave[t_i]) > 0
+		com_str *= "* The following edges are no longer a part of the heaviest subgraph: $(h_anomaly.edge_leave[t_i])\n\n"
+	end
+
+	com_str
+end
+
+# ╔═╡ 0c5d3747-656a-40db-a90c-d1ac75b94302
+md"""# Heaviest k-subgraph anomalies"""
+
+# ╔═╡ c181c28e-0b11-4eca-9f43-bcc37df022f7
+struct HeaviestKSubgraphAnomalies
+	vertex_join
+	vertex_leave
+	edge_join
+	edge_leave
+end
+
+# ╔═╡ 7aae30bb-0a02-45f4-8243-ee8584958b0a
+function solution_to_community((graph, solution))
+	n = nv(graph)
+
+	f = fst.(solution)
+	s = snd.(solution)
+	append!(f, s)
+
+	[ findfirst(x->x==i, f) != nothing ? 1 : 0 for i in 1:n]
+end
+
+# ╔═╡ dc57e2be-9019-4f0c-afa3-6e2f9ae15808
+function getVertexChangesVectorFromCommunities(communities)
+	n = length(communities)
+	v_join = [[] for i in 1:n]
+	v_leave = [[] for i in 1:n]
+	for i in 2:n
+		d = communities[i] - communities[i - 1]
+		# At the vertices where d is not 0 there was a change, if that change is negative, that vertex left the heaviest component, otherwise it joined it. We find all of those instances, and add the index of the vertices to the list at the given timeframe.
+		append!(v_leave[i], findall(x -> x < 0, d))
+		append!(v_join[i], findall(x -> x > 0, d))
+	end
+
+	(v_join, v_leave)
+end
+
+# ╔═╡ 52629909-46e1-418e-9334-35aba0e2bf8e
+function getEdgeChangesVectorFromPairVecs(pairVecs)
+	#Transform edge list to edge Set for easier Set operations.
+	isInHeaviest = map(x -> Set(x), pairVecs)
+
+	n = length(pairVecs)
+	e_join = [[] for i in 1:n]
+	e_leave = [[] for i in 1:n]
+	for i in 2:n
+		d1 = setdiff(isInHeaviest[i], isInHeaviest[i - 1])
+		d2 = setdiff(isInHeaviest[i-1], isInHeaviest[i])
+
+		append!(e_leave[i], d2)
+		append!(e_join[i], d1)
+	end
+
+	(e_join, e_leave)
+end
+
+# ╔═╡ cba9396b-2418-4b52-aed7-e4345037cc12
+function getHeaviestKSubgraphAnomaliesByTimestamp(gs, pairVecs)
+	communities = map(solution_to_community, zip(gs,pairVecs))
+	v_join, v_leave = getVertexChangesVectorFromCommunities(communities)
+	
+	e_join, e_leave = getEdgeChangesVectorFromPairVecs(pairVecs)
+	HeaviestKSubgraphAnomalies(
+		v_join,
+		v_leave,
+		e_join,
+		e_leave
+	)
+end
+
+# ╔═╡ 3feecb5e-4e3a-4f01-9df4-1b4888fdb641
+function getAnomalyKHeaviestPoints(khsA, t_i, n)
+	[findfirst(x -> x == i, khsA.vertex_join[t_i]) != nothing ? 2 : (findfirst(x -> x == i, khsA.vertex_leave[t_i]) != nothing ? 3 : 1) for i in 1:n]
+end
+
+# ╔═╡ 2e8d0425-6ed8-43dd-b34f-7f45ded3bd2d
+function getAnomalyKHeaviestEdges(g, khsA, t_i, n)
+	g_edges = collect(edges(g))
+	
+	[findfirst(x -> x == (edge.src, edge.dst) || x == (edge.dst, edge.src), khsA.edge_join[t_i]) != nothing ? 2 : (findfirst(x -> x == (edge.src, edge.dst) || x == (edge.dst, edge.src), khsA.edge_leave[t_i]) != nothing ? 3 : 1) for edge in g_edges]
+end
+
+# ╔═╡ 208ddac9-afba-4f80-be45-3efe7bb67efe
+function getKHeaviestAnomaliesText(kh_anomaly, t_i)
+	com_str = ""
+
+	if length(kh_anomaly.vertex_join[t_i]) > 0
+		com_str *= "* The following vertices are now part of the heaviest subgraph: $(kh_anomaly.vertex_join[t_i])\n\n"
+	end
+	if length(kh_anomaly.vertex_leave[t_i]) > 0
+		com_str *= "* The following vertices are no longer a part of the heaviest subgraph: $(kh_anomaly.vertex_leave[t_i])\n\n"
+	end
+	if length(kh_anomaly.edge_join[t_i]) > 0
+		com_str *= "* The following edges are now part of the heaviest subgraph: $( kh_anomaly.edge_join[t_i])\n\n"
+	end
+	if length(kh_anomaly.edge_leave[t_i]) > 0
+		com_str *= "* The following edges are no longer a part of the heaviest subgraph: $(kh_anomaly.edge_leave[t_i])\n\n"
+	end
+
+	com_str
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -949,25 +1162,42 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═649e0c6c-0b86-4c8c-b149-efd3e8898abc
 # ╠═81f21e28-8f1e-46fd-b973-9f4030e8767c
 # ╠═8482eb00-c7fc-4d55-bef3-3f0f22ddb5e1
+# ╠═7f705794-aec3-4773-a128-abea248f7414
+# ╠═26b8a9da-4d7b-479e-b992-d361eeabec24
+# ╠═92d3389b-695b-44f5-abcf-7c8c33cf937c
 # ╟─1cc3031a-d5a4-420a-a366-70dcaea619ac
 # ╠═d05ab2fc-b323-4548-a3a2-62174aec5773
 # ╠═3fcaba30-f89f-4037-8b70-fc213948b34f
-# ╠═7f705794-aec3-4773-a128-abea248f7414
-# ╠═26b8a9da-4d7b-479e-b992-d361eeabec24
 # ╠═245ea8d9-410b-4508-812d-bdd45e20464d
 # ╠═c607733c-bee4-4d63-8ce5-8ae59d6c7793
 # ╠═b9ad6c45-e675-43b9-8e04-c1b68292b78a
 # ╠═55de6358-4a45-4364-b6e6-9949c5225d93
 # ╠═690baeb6-6af9-41f7-bc57-0dee8e3fabb7
 # ╠═534f67eb-bb5b-465f-83d4-90e90cc2915b
+# ╠═9a2805ab-4570-42cd-839f-49863a57e8a3
+# ╠═a2c1a27e-c556-4791-9773-a66b42619399
 # ╟─24d3b01d-e9c4-4fe4-8955-e167be8f2c62
 # ╠═578b9453-4327-485e-b639-0b724ba92334
 # ╠═81b6bc8d-25fe-42a3-9d5d-94ee8101c287
+# ╠═76f312b7-8aff-402d-9ba8-2fc8d999a4ed
+# ╠═42d11578-bb6c-45e5-8abe-c80fc8865203
 # ╟─6c54a61f-1191-4b42-8e3c-67471066143b
 # ╠═2e4c4ebe-39dd-4062-bd15-e4f880e4d9d5
 # ╠═ef91d00d-bd89-455d-9612-c4f2ad321888
 # ╠═04493078-0098-484a-84e6-d1486c995f6e
 # ╠═20707814-5b46-44e0-9a7c-bd6a3a591bfd
 # ╠═9ecc4c31-96b6-484e-ba88-8f0d3f8bb8bd
+# ╠═fb54ee20-86c6-481f-afdb-6d5299cad1f1
+# ╠═a6b68752-059c-4c13-aa1d-f9f93c905353
+# ╠═814d8747-096f-467e-aad7-d38f2096c3c3
+# ╟─0c5d3747-656a-40db-a90c-d1ac75b94302
+# ╠═c181c28e-0b11-4eca-9f43-bcc37df022f7
+# ╠═7aae30bb-0a02-45f4-8243-ee8584958b0a
+# ╠═dc57e2be-9019-4f0c-afa3-6e2f9ae15808
+# ╠═52629909-46e1-418e-9334-35aba0e2bf8e
+# ╠═cba9396b-2418-4b52-aed7-e4345037cc12
+# ╠═3feecb5e-4e3a-4f01-9df4-1b4888fdb641
+# ╠═2e8d0425-6ed8-43dd-b34f-7f45ded3bd2d
+# ╠═208ddac9-afba-4f80-be45-3efe7bb67efe
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

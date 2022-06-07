@@ -42,7 +42,7 @@ end
 
 # ╔═╡ c9d3fbd8-773f-43ab-bd54-d36c2d16a525
 struct ACOKSettings 
-	acos:: ACOSettings
+	acos # :: ACOSettings
 	k:: Real
 	# There are situations when the ACO algorithm is unable to create the k subgraph
 	# There is two options there:
@@ -357,7 +357,6 @@ begin
 			3 # starting_pheromone_ammount
 		)
 	c = HeaviestACOK(g, ACOKSettings(vars, 12, false, 20))
-	@show c
 	calculate_heaviness(g, c)
 	
 end

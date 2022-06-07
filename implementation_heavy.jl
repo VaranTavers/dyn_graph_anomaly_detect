@@ -57,8 +57,7 @@ begin
 end
 
 # ╔═╡ 354866db-7344-462b-a7ce-711cc316cfcb
-function calculate_weight_sum_of_edges(graph, ei1, ei2)
-	g_edges = collect(edges(graph))
+function calculate_weight_sum_of_edges(graph, ei1, ei2, g_edges)
 	e1 = g_edges[ei1]
 	
 	if ei1 == ei2
@@ -76,10 +75,11 @@ end
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
 function calculate_η(graph)
 	n = ne(graph)
+	g_edges = collect(edges(graph))
 
-	η = [ calculate_weight_sum_of_edges(graph, i, j) for i in 1:n, j in 1:n]
+	η = [ calculate_weight_sum_of_edges(graph, i, j, g_edges) for i in 1:n, j in 1:n]
 
-	η
+	η ./ n
 end
 
 # ╔═╡ b48ba4f0-f409-43c2-bde2-cb90acd5085d
@@ -210,7 +210,25 @@ end
 begin
 	g3 = loadgraph("dynamic_graphs/syntetic/school_test/school_test1.lgz", SWGFormat())
 	
-	c3 = HeaviestACO(g3, vars)
+	@time c3 = HeaviestACO(g3, vars)
+	
+end
+
+# ╔═╡ da9a9560-1b80-485f-be9a-953fa578923a
+begin
+	g4 = loadgraph("dynamic_graphs/real/ants1w/ants1w_1.lgz", SWGFormat())
+	
+	vars4 = ACOSettings(
+			1, # α
+			2, # β
+			1, # number_of_ants
+			0.8, # ρ
+			0.005, # ϵ
+			1, # max_number_of_iterations
+			3 # starting_pheromone_ammount
+		)
+	c4 = HeaviestACO(g4, vars4)
+	calculate_heaviness(g4, c4)
 	
 end
 
@@ -702,5 +720,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 # ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 # ╠═5fc10530-aad7-4d90-b3b6-0f0c3b4f3c30
+# ╠═da9a9560-1b80-485f-be9a-953fa578923a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

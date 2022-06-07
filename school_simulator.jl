@@ -30,7 +30,7 @@ end
 # ╔═╡ 30b07463-2a7f-4ace-91d6-73d1d8be31a9
 md"""
 Number of people:
-$(@bind number_of_people Scrubbable(1:200))
+$(@bind number_of_people Scrubbable(0:50:1000))
 """
 
 # ╔═╡ 62aea3fe-8050-4817-9458-af98aeae88b6
@@ -799,7 +799,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 
 # ╔═╡ Cell order:
 # ╠═6611c9c0-a84e-11ec-072c-0b286e94fbeb
-# ╟─30b07463-2a7f-4ace-91d6-73d1d8be31a9
+# ╠═30b07463-2a7f-4ace-91d6-73d1d8be31a9
 # ╟─62aea3fe-8050-4817-9458-af98aeae88b6
 # ╟─4b034fbb-32d2-4685-ade2-da91b86c0680
 # ╟─b9ade87f-fd67-4996-84f2-ca2401081e4f

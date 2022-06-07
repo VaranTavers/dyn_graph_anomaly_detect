@@ -306,7 +306,7 @@ phe[7, :]
 begin
 	g3 = loadgraph("dynamic_graphs/syntetic/school_test/school_test52.lgz", SWGFormat())
 	
-	c3 = CommunityACO(g3, vars2)
+	@time c3 = CommunityACO(g3, vars2)
 	calculate_modularity(g3, c3)
 	
 end

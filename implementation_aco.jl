@@ -198,13 +198,16 @@ function ACO(graph, vars::ACOSettings, η, τ; k = 0)
 	sgb_val = -1000
 	τ_max = vars.starting_pheromone_ammount
 	τ_min = 0
+
+	# Precomputing this
+	η_d_sq = inner.η .^ vars.β
 	
 	# While termination condition not met
 	 for i in 1:vars.max_number_of_iterations
 		# Construct new solution s according to Eq. 2
 
-		# Precalculating the probabilities results in a 2s time improvement.
-		probM = inner.τ .^ vars.α .* inner.η .^ vars.β
+		# Precomputing the probabilities results in a 2s time improvement.
+		probM = inner.τ .^ vars.α .* η_d_sq
 		#probM = [inner.τ[i, j] ^ vars.α * inner.η[i, j] ^ vars.β for i in 1:n, j in 1:n]
 		probM ./= sum(probM, dims=2)
 		probM = cumsum(probM, dims=2)

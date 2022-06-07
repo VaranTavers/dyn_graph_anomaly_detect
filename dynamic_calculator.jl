@@ -48,40 +48,30 @@ end
 begin
 	implementation_jl = ingredients("./implementation_community.jl")
 	import .implementation_jl: CommunityACO, calculate_modularity, ACOSettings, normalized_mutual_information, CommunityACO_get_pheromone
-end
-
-# ╔═╡ e9e50365-300c-49bb-bf85-89de4b4c692a
-begin
+	
 	implementation_heavy_jl = ingredients("./implementation_heavy.jl")
 	import .implementation_heavy_jl: HeaviestACO
-end
-
-# ╔═╡ 6df4dd31-d769-4336-a142-cdfd1585f29b
-begin
+	
+	implementation_k_heavy_jl = ingredients("./implementation_k_heavy.jl")
+	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community
+	
 	com_func_jl = ingredients("./community_functions.jl")
 	import .com_func_jl: relabel_communities, calculate_merging, calculate_splitting, calculate_unusual_appearance, calculate_community_activation, calculate_community_deactivation, calculate_community_similarity2
-end
-
-# ╔═╡ 467be1e9-1fe0-4f52-baeb-efb21c89c693
-begin
+	
 	node_func_jl = ingredients("./node_functions.jl")
 	import .node_func_jl: calculate_anomaly_vector_quantity, calculate_anomaly_vector_category, detect_change_anomaly_vector, detect_outlier_anomaly_vector
-end
 
-# ╔═╡ 81bf24e5-4b7b-40eb-b6b0-28a8ba9089fa
-begin
 	anomaly_calc_jl = ingredients("./anomaly_calculator.jl")
-	import .anomaly_calc_jl: getCommunityAnomaliesByTimestamp, getVertexAnomaliesByTimestamp,  getHeaviestSubgraphAnomaliesByTimestamp
+	import .anomaly_calc_jl: getCommunityAnomaliesByTimestamp, getVertexAnomaliesByTimestamp,  getHeaviestSubgraphAnomaliesByTimestamp, getHeaviestKSubgraphAnomaliesByTimestamp, getCommunityAnomaliesText, getVertexAnomaliesText, getHeaviestAnomaliesText, getKHeaviestAnomaliesText, getPointAnomalyType, getAnomalyVertexPoints, getAnomalyHeaviestPoints,  getAnomalyHeaviestEdges, getAnomalyKHeaviestPoints, getAnomalyKHeaviestEdges
 end
 
 # ╔═╡ 2fb037ea-78c1-470c-8364-9a132825c126
 md"""
 Evolving communities: $(@bind evolve CheckBox())
-"""
 
-# ╔═╡ 326693d9-210c-457c-a251-bb1c2bbfc596
-md"""
 Continuous pheromones (may result in slowdowns): $(@bind continuous CheckBox())
+
+Check heaviest subgraph (very slow on large graphs):  $(@bind check_heavy CheckBox())
 """
 
 # ╔═╡ 3f4eb27b-8834-4997-8f8b-02d99250d2f8
@@ -98,6 +88,9 @@ Number of files:
 $(@bind number_of_files NumberField(0:100, default=20))
 """
 
+# ╔═╡ 144b12d8-31e9-41bc-a078-7151f0e47960
+Threads.nthreads()
+
 # ╔═╡ 2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
 begin
 	vars = ACOSettings(
@@ -109,41 +102,36 @@ begin
 		100, # max_number_of_iterations
 		300 # starting_pheromone_ammount
 	)
+
+	apply_aco(x) = CommunityACO(x, vars)
+
+	function  reducer_ACO(X, g)
+		x, τ = X
+		c2, τ_c = CommunityACO(g, vars, τ)
+		push!(x, c2)
+		(x, τ_c)
+	end
+
+	graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
+
+	@time if !continuous
+		communities_pred = Folds.map(apply_aco, graphs)
+	else
+		c, τ_c = CommunityACO_get_pheromone(graphs[1], vars::ACOSettings)
+		communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
+	end
+
+	communities_pred2 = relabel_communities(communities_pred, 0.7; changing=evolve)
+	matrix = mapreduce(permutedims, vcat, communities_pred2);
+	num_of_relabeled_communities = maximum(maximum.(communities_pred2))
+	
+	community_size_lists = [map(x -> count(x .== i), communities_pred2) for i in 1:num_of_relabeled_communities];
 end
 
-# ╔═╡ 48509c7e-40cc-4930-967f-75f77c14701d
-apply_aco(x) = CommunityACO(x, vars)
-
-# ╔═╡ 27207be6-5031-4001-a98d-cb356b7ace68
-graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
-
-# ╔═╡ 9903f2b0-90a2-4847-a00f-f033d79e2a12
-function reducer_ACO(X, g)
-	x, τ = X
-	c2, τ_c = CommunityACO(g, vars, τ)
-	push!(x, c2)
-	(x, τ_c)
+# ╔═╡ 9050e59a-4720-45d2-92fb-b47fe4e825a9
+function applyHACO(x, vars2)
+	@time HeaviestACO(x, vars2)
 end
-
-# ╔═╡ f891fd6d-a77e-46bf-b677-e500459e4658
-if !continuous
-	communities_pred = Folds.map(apply_aco, graphs)
-else
-	c, τ_c = CommunityACO_get_pheromone(graphs[1], vars::ACOSettings)
-	communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
-end
-
-# ╔═╡ efc1d089-67fb-4259-aa99-bccc4360b9d2
-communities_pred2 = relabel_communities(communities_pred, 0.7; changing=evolve)
-
-# ╔═╡ b09d6945-b3c9-482a-883f-c48126c36244
-matrix = mapreduce(permutedims, vcat, communities_pred2);
-
-# ╔═╡ b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
-num_of_relabeled_communities = maximum(maximum.(communities_pred2))
-
-# ╔═╡ f14c9452-72fe-4ed7-905c-ed7b2dd55b19
-community_size_lists = [map(x -> count(x .== i), communities_pred2) for i in 1:num_of_relabeled_communities]
 
 # ╔═╡ 0bbda310-2c0d-4f32-9ecc-762c37a91d46
 # Heavy calculations have to be done for bigger graphs, so we'll lower the parameters for this application.
@@ -154,46 +142,127 @@ begin
 		10, # number_of_ants
 		0.8, # ρ
 		0.005, # ϵ
-		50, # max_number_of_iterations
+		25, # max_number_of_iterations
 		300 # starting_pheromone_ammount
 	)
+	if check_heavy
+		heaviest_pred = Folds.map(x -> applyHACO(x, vars2), graphs);
+	else
+		heaviest_pred = map(x -> [], graphs)
+	end
+	
 end
 
-# ╔═╡ 1509138b-32dd-4a8c-9eca-5fa0432bc584
-heaviest_pred = Folds.map(x -> HeaviestACO(x, vars2), graphs)
+# ╔═╡ a33cbac5-e324-4be4-a263-ceb39af987bd
+md"""
+k = $(@bind k Scrubbable(1:60))
+"""
+
+# ╔═╡ 88d479fa-1da6-404f-a2af-051cf23dc733
+# The Heaviest k-subgraph algorithm requires some extra parameters
+begin
+	vars3 = ACOKSettings(
+		vars,
+		k,
+		false,
+		Integer(ceil(k*1.5))
+	)
+	
+	@time heaviest_k_pred = Folds.map(x -> HeaviestACOK(x, vars3), graphs);
+end
+
+# ╔═╡ a5f00865-bc76-4f79-bf1f-43239c025304
+begin
+	com_anomaly = getCommunityAnomaliesByTimestamp([], communities_pred2, community_size_lists);
+	vertex_anomaly = getVertexAnomaliesByTimestamp(matrix);
+	heaviest_anomaly = getHeaviestSubgraphAnomaliesByTimestamp(graphs, heaviest_pred);
+	kheaviest_anomaly = getHeaviestKSubgraphAnomaliesByTimestamp(graphs, heaviest_k_pred);
+end
 
 # ╔═╡ 31c046f1-5b2b-4963-99a5-6ab4924cc487
-@bind g_i Scrubbable(1:length(graphs))
+md"""
+Timestamp: $(@bind g_i Scrubbable(1:length(graphs)))
+
+Plot type: $(@bind p_type Select(["Communities", "Heaviest subgraph", "Heaviest k subgraph"]))
+
+Show anomalies: $(@bind show_anomalies CheckBox())
+"""
 
 # ╔═╡ df1bab46-1112-498d-961d-da9b45aa0461
-colors = distinguishable_colors(num_of_relabeled_communities + 1)
+begin
+	colors = distinguishable_colors(num_of_relabeled_communities + 1);
+	anomaly_colors = distinguishable_colors(10);
+	if show_anomalies
+		if p_type == "Communities"
+			collect(zip(anomaly_colors, ["No anomaly", "Community Activation/Creation", "Community Deactivation/Disappearance", "Unusual size change/appearance", "Merge / Split", "Outliner community change", "Stable community change"]))
+		else 
+			collect(zip(anomaly_colors, ["No anomaly", "Entered into heaviest subgraph", "Left heaviest subgraph"]))
+		end
+	end
+end
 
 # ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 begin
 	layout=(args...)->spring_layout(args...; C=5)
-	plots = [gplot(graphs[i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[i]), nodefillc=colors[communities_pred2[i] .+ 1]) for i in 1:length(graphs)];
-	1
+	if !show_anomalies
+		if p_type == "Communities"
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=colors[communities_pred2[g_i] .+ 1])
+		elseif p_type == "Heaviest subgraph"
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=[ j ? colors[2] : colors[1] for j in heaviest_pred[g_i]])
+		else
+			community = solution_to_community(graphs[g_i], heaviest_k_pred[g_i])
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=[ j > 0 ? colors[2] : colors[1] for j in community])
+		end
+	else
+		if p_type == "Communities"
+			
+			vertex_an = getAnomalyVertexPoints(vertex_anomaly, g_i, nv(graphs[g_i]))
+			
+			# We fill out the colors based on the Community level anomalies
+			nodefillc = [getPointAnomalyType(com_anomaly, g_i, matrix[g_i, j], matrix[max(1, g_i-1), j]) for j in 1:nv(graphs[g_i])]
+			# If a vertex is not involved in a Community level anomaly, we check wether it is involved in a vertex level one.
+			nodefillc = [ j == 1 ? vertex_an[i] : j for (i,j) in enumerate(nodefillc)]
+			
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=anomaly_colors[nodefillc])
+		elseif p_type == "Heaviest subgraph"
+			nodefillc = getAnomalyHeaviestPoints(heaviest_anomaly, g_i, nv(graphs[g_i]))
+			edgestrokec = getAnomalyHeaviestEdges(heaviest_anomaly, g_i, ne(graphs[g_i]))
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=anomaly_colors[nodefillc])
+		else
+			nodefillc = getAnomalyKHeaviestPoints(kheaviest_anomaly, g_i, nv(graphs[g_i]))
+		
+			edgestrokec = getAnomalyKHeaviestEdges(graphs[g_i], kheaviest_anomaly, g_i, ne(graphs[g_i]))
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=anomaly_colors[nodefillc])
+		end
+	end
+	plot
 end
 
-# ╔═╡ 17e167af-485d-4069-b421-6cef0e84ac64
-colors[communities_pred2[g_i] .+ 1]
-
-# ╔═╡ e1432419-b674-4ae0-96a0-da9a74b842e3
-plots[g_i]
-
-# ╔═╡ c5840aa0-8ed7-4e0a-a3dc-0e46ea7cf6bf
+# ╔═╡ c6f101a3-dee1-4cb9-85f8-24ff71a45efc
 begin
-	gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=[ j ? colors[2] : colors[1] for j in heaviest_pred[g_i]])
+	com_text = getCommunityAnomaliesText(com_anomaly, g_i)
+	vert_text = getVertexAnomaliesText(vertex_anomaly, g_i)
+	h_text = getHeaviestAnomaliesText(heaviest_anomaly, g_i)
+	kh_text = getKHeaviestAnomaliesText(kheaviest_anomaly, g_i)
+	
+md"""
+## Community anomalies
+	
+$(Markdown.parse(com_text))
+	
+## Vertex anomalies
+	
+$(Markdown.parse(vert_text))
+	
+## Heaviest subgraph anomalies
+	
+$(Markdown.parse(h_text))
+	
+## Heaviest k-subgraph anomaliest.
+	
+$(Markdown.parse(kh_text))
+"""
 end
-
-# ╔═╡ a5f00865-bc76-4f79-bf1f-43239c025304
-getCommunityAnomaliesByTimestamp([], communities_pred2, community_size_lists)
-
-# ╔═╡ adad9aef-2541-412b-ad00-4da396f79763
-getVertexAnomaliesByTimestamp(matrix)
-
-# ╔═╡ a1b96149-94bb-4ff4-a9c8-db813d85c481
-getHeaviestSubgraphAnomaliesByTimestamp(graphs, heaviest_pred)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -885,33 +954,19 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═4d1c9e56-9a19-11ec-176a-e17ab3202d23
 # ╠═d4732069-a523-467e-8970-e67e51b7fe57
 # ╠═102b3c2a-9506-4a59-8c8d-e38692e22742
-# ╠═e9e50365-300c-49bb-bf85-89de4b4c692a
-# ╠═6df4dd31-d769-4336-a142-cdfd1585f29b
-# ╠═467be1e9-1fe0-4f52-baeb-efb21c89c693
-# ╠═81bf24e5-4b7b-40eb-b6b0-28a8ba9089fa
 # ╟─2fb037ea-78c1-470c-8364-9a132825c126
-# ╟─326693d9-210c-457c-a251-bb1c2bbfc596
 # ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
 # ╟─90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
+# ╠═144b12d8-31e9-41bc-a078-7151f0e47960
 # ╠═2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
-# ╠═48509c7e-40cc-4930-967f-75f77c14701d
-# ╠═27207be6-5031-4001-a98d-cb356b7ace68
-# ╠═9903f2b0-90a2-4847-a00f-f033d79e2a12
-# ╠═f891fd6d-a77e-46bf-b677-e500459e4658
-# ╠═efc1d089-67fb-4259-aa99-bccc4360b9d2
-# ╠═b09d6945-b3c9-482a-883f-c48126c36244
-# ╠═b5b5a007-40d3-4ffe-90c4-1ad6514e8c90
-# ╠═f14c9452-72fe-4ed7-905c-ed7b2dd55b19
+# ╠═9050e59a-4720-45d2-92fb-b47fe4e825a9
 # ╠═0bbda310-2c0d-4f32-9ecc-762c37a91d46
-# ╠═1509138b-32dd-4a8c-9eca-5fa0432bc584
-# ╠═31c046f1-5b2b-4963-99a5-6ab4924cc487
+# ╠═a33cbac5-e324-4be4-a263-ceb39af987bd
+# ╠═88d479fa-1da6-404f-a2af-051cf23dc733
+# ╟─a5f00865-bc76-4f79-bf1f-43239c025304
+# ╟─31c046f1-5b2b-4963-99a5-6ab4924cc487
 # ╟─df1bab46-1112-498d-961d-da9b45aa0461
 # ╟─9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
-# ╟─17e167af-485d-4069-b421-6cef0e84ac64
-# ╠═e1432419-b674-4ae0-96a0-da9a74b842e3
-# ╠═c5840aa0-8ed7-4e0a-a3dc-0e46ea7cf6bf
-# ╠═a5f00865-bc76-4f79-bf1f-43239c025304
-# ╠═adad9aef-2541-412b-ad00-4da396f79763
-# ╠═a1b96149-94bb-4ff4-a9c8-db813d85c481
+# ╟─c6f101a3-dee1-4cb9-85f8-24ff71a45efc
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
