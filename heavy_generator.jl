@@ -14,7 +14,7 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 6611c9c0-a84e-11ec-072c-0b286e94fbeb
+# ╔═╡ 61a33cd0-e69b-11ec-17de-cd8ef77dfbc1
 begin
 	using Graphs
 	using SimpleWeightedGraphs
@@ -27,162 +27,53 @@ begin
 	using DataFrames
 end
 
-# ╔═╡ 30b07463-2a7f-4ace-91d6-73d1d8be31a9
+# ╔═╡ 44fd63d6-ad4f-4bd5-8ab2-adabbd020eaa
 md"""
-Number of people:
-$(@bind number_of_people Scrubbable(0:50:1000))
+Number of vertices:  $(@bind n Scrubbable(0:25:300))
+
+Number of vertices in heaviest subgraph: $(@bind k Scrubbable(0:5:50))
+
+Min weight difference between heaviest and simple graph: $(@bind m_diff Scrubbable(1:50))
+
+Probability of edges existing (%): $(@bind p_in Scrubbable(1:100))
 """
 
-# ╔═╡ 62aea3fe-8050-4817-9458-af98aeae88b6
-md"""
-Number of classes:
-$(@bind number_of_classes Scrubbable(2:15))
-"""
-
-# ╔═╡ 4b034fbb-32d2-4685-ade2-da91b86c0680
-md"""
-Number of friend groups per class:
-$(@bind number_of_friend_groups Scrubbable(2:10))
-"""
-
-# ╔═╡ b9ade87f-fd67-4996-84f2-ca2401081e4f
-md""" Number of places in recess:
-$(@bind number_of_places Scrubbable(1:10))
-"""
-
-# ╔═╡ c7608d30-a159-4464-a1b0-4705466149f5
-md"""
-Number of teachers:
-$(@bind number_of_teachers Scrubbable(number_of_classes: number_of_classes + 10))
-"""
-
-# ╔═╡ d00b3544-3774-4126-abc8-62e534d8a478
-md"""
-Number of classes/day:
-$(@bind number_of_classes_per_day Scrubbable(3:8))
-"""
-
-# ╔═╡ e3925cfa-9f1d-4f82-a27b-5e8129b2829b
-people_classes = rand(collect(1:number_of_classes), number_of_people)
-
-# ╔═╡ cbffd573-71dc-4f2b-80ba-ba1240f1d56e
-people_groups = map(x -> rand(collect(((x-1) * number_of_friend_groups + 1):x*number_of_friend_groups)) , people_classes)
-
-# ╔═╡ 6cdb2cba-9925-4c37-a573-540a014941a4
-groups_places = rand(collect(1:number_of_places), number_of_friend_groups * number_of_classes)
-
-# ╔═╡ 8f5e857c-a51d-4d15-b2b5-bf00f686b1c9
-# We will pemute this vector to get a timetable for each class
-teacher_classes = vcat(collect(1:number_of_classes), zeros(Int64, number_of_teachers - number_of_classes)) 
-
-# ╔═╡ d2c3d71a-1548-417e-9264-acb852299443
-md"""
-Ratio of interaction with other class, during class per interval (x / 1000):
-$(@bind p_class_inter Scrubbable(0:200))
-"""
-
-# ╔═╡ 39b4915b-57f8-4655-adc6-b3a3d3ae068d
-md"""
-Ratio of interaction with other group, during break per interval (x / 1000):
-$(@bind p_group_inter Scrubbable(0:200))
-"""
-
-# ╔═╡ a124a4c8-398b-4f6d-aa83-aaee916b7760
-md"""
-Time intervals in minutes:
-$(@bind δ_t Scrubbable(1:60))
-"""
-
-# ╔═╡ 242aa867-9430-4920-9727-301194d134fa
-md"""
-Verbose logging $(@bind verbose CheckBox())
-"""
-
-# ╔═╡ 42688150-a3e3-4d2a-8c5e-c6620b4c43b0
-timetable = [shuffle(teacher_classes) for _ in 1:number_of_classes_per_day]
-
-# ╔═╡ 2a7b010e-603c-4d3b-a63b-76cfe44b5055
-function log!(log, string, i)
-	if verbose || i == 1
-		push!(log, string)
-	end
-end
-
-# ╔═╡ 42b340a2-1640-4766-9783-5cf40832bf53
-function calculate_class_time_person(logs, time, m)
-	class = people_classes[m]
-	if rand() < p_class_inter / 1000
-		class = rand(1:number_of_classes)
-		log!(logs, "Classtime switch at $(time) , person: $(m), $(people_classes[m]) -> $(class)", 1)
-	end
-
-	class
-end
-
-# ╔═╡ 7823c46b-3142-4606-a286-01a6defaf1b3
-function calculate_class_time_people(logs, time)
-	[ calculate_class_time_person(logs, time, m) for m in 1:number_of_people]
-end
-
-# ╔═╡ 8f47f326-14bb-4e35-a272-4ef23c35ff92
-function calculate_break_time_person(logs, time, m)
-	group = people_groups[m]
-	if rand() < p_group_inter / 1000
-		group = rand(1:number_of_friend_groups)
-		log!(logs, "Breaktime switch at $(time) , person: $(m), $(people_groups[m]) -> $(group)", 1)
-	end
-
-	group
-end
-
-# ╔═╡ 94063385-f505-4b74-a915-5a5e26a2274c
-function calculate_break_time_people(logs, time)
-	[ calculate_break_time_person(logs, time, m) for m in 1:number_of_people]
-end
-
-# ╔═╡ 5bf8ff8f-c3bb-43fd-9298-b15c985ade12
-function get_place(groups)
-	map(x -> groups_places[x], groups)
-end
-
-# ╔═╡ 1512550e-144a-4753-87bf-d0f453ce0915
-function calculate_class_time_all(logs, i)
-	vcat(calculate_class_time_people(logs, i), timetable[Int64(ceil(i / 60))])
-end
-
-# ╔═╡ b3ab9aba-6c15-4e58-926c-f00d2950d642
-function calculate_break_time_all(logs, i)
-	vcat(calculate_break_time_people(logs, i), [9999 for i in 1:number_of_teachers])
-end
-
-# ╔═╡ bc4e4d34-cd8d-4751-b97e-d0e991a5914c
+# ╔═╡ 35e2227c-011e-44d2-8ff8-a042f5498be4
 begin
-	n = number_of_people + number_of_teachers
-	logs = []
-	
-	people_place_table = [ i % 60 < 50 ? calculate_class_time_all(logs, i) : calculate_break_time_all(logs, i) for i in 1:(number_of_classes_per_day * 60)]
-end
-
-# ╔═╡ 519686e3-2c3c-46b3-97b0-20077a42ead9
-function create_interval(start_time::Integer, time_interval::Integer)
-	n = number_of_people + number_of_teachers
-	g = SimpleWeightedGraph(n)
-
 	mat = zeros(n, n)
+	g = SimpleWeightedGraph(n)
+	heaviest_w = 0
 	
-	for t in start_time:(start_time + time_interval - 1)
-		for m in 1:n
-			same_class = people_place_table[t] .== people_place_table[t][m]
-			mat[m, same_class] .+= 1
+	for i in 1:n
+		for j in (i+1):n
+			if rand() < (p_in / 100)
+				if (i <= k && j <= k)
+					val = 1 + m_diff
+					heaviest_w += val
+				else
+					val = 1
+				end
+				mat[i, j] = val
+				mat[j, i] = val
+				add_edge!(g, i, j, val)
+			end
 		end
 	end
 
-	
-
-	for i in 1:n
-		for j in (i+1):n
-			if mat[i,j] + mat[j, i] > 0
-				add_edge!(g, i, j, (mat[i,j] + mat[j, i]) / (2 * time_interval))
+	while minimum(sum(mat, dims=2)[1:k]) == 0
+		for i in 1:k
+			for j in (i+1):k
+				if mat[i,k] == 0  && rand() < (p_in / 100)
+					if (i <= k && j <= k)
+						val = 1 + m_diff
+						heaviest_w += val
+					else
+						val = 1
+					end
+					mat[i, j] = val
+					mat[j, i] = val
+					add_edge!(g, i, j, val)
+				end
 			end
 		end
 	end
@@ -190,60 +81,31 @@ function create_interval(start_time::Integer, time_interval::Integer)
 	g
 end
 
-# ╔═╡ 5b0f0db9-8ac1-41f2-8dec-7e5d3ba5a9bc
-graphs = Folds.map(i -> create_interval(Int64((i - 1) * δ_t + 1), δ_t), 1:(ceil(number_of_classes_per_day * 60 / δ_t - 1)))
+# ╔═╡ bd8e2736-9f1c-4ef7-b71a-2183d08b6dd3
+heaviest_w
 
-# ╔═╡ 29fee730-866b-456a-b6c7-0e7c30c2152c
-@bind g_i Scrubbable(1:length(graphs))
-
-# ╔═╡ 0639a2cf-3181-407e-bac5-4969d679e851
-begin
-	m = number_of_people + number_of_teachers
-	colors = distinguishable_colors(3)[2:end]
-	node_colors = [colors[i <= number_of_people ? 1 : 2] for i in 1:m]
-	nodelabel=collect(1:m)
-	gplot(graphs[g_i], nodesize=5, nodelabel=nodelabel, nodefillc=node_colors, layout=(args...)->spring_layout(args...; C=5))
-end
-
-# ╔═╡ 265741e9-2057-49d3-9da3-792471414ba0
+# ╔═╡ 4f11373f-5c37-4dae-aea1-75b058c111cc
 md"""
 Név:
 $(@bind name TextField())
 """
 
-# ╔═╡ 7b5b8370-bd48-4c5d-8ae1-20e694ae9591
+# ╔═╡ 6e55b18b-54d4-4381-9b70-c89f245d5a2d
 md"""
 $(@bind go CheckBox()) Create
 """
 
-# ╔═╡ 3abf3570-4de2-457b-9197-b15c3683c818
+# ╔═╡ 1dbc84ae-929d-4c6e-bdf8-a929c6cf0736
 begin
 	if go
-		for (i, g) in enumerate(graphs)
-			savegraph("dynamic_graphs/$(name)$(i).lgz", g)
-		end
-		for (i, g) in enumerate(graphs)
-			CSV.write("dynamic_communities/$(name)$(i).dat", Tables.table(people_place_table[i]'))
-		end
+		savegraph("$(name).lgz", g)
 		open("logs/$(name).txt","w") do io
-				println(io, "Number of people $(number_of_people)")
-				println(io, "Number of classes $(number_of_classes)")
-				println(io, "Number of friend groups $(number_of_friend_groups)")
-				println(io, "Number of teachers $(number_of_teachers)")
-				println(io, "Number of classes/day $(number_of_classes_per_day)")
-				println(io, "Ratio of interaction with other class, during class per 5 minutes (x / 1000): $(p_class_inter)")
-				println(io, "Ratio of interaction with other group, during break per minute (x / 1000): $(p_group_inter)")
-				println(io, "Time intervals in minutes: $(δ_t)")
-				println(io, "People-Class vector");
-				println(io, people_classes);
-				println(io, "People-Group vector");
-				println(io, people_groups);
-				println(io, "Group-place vector");
-				println(io, groups_places)
-				println(io, "Teacher timetable");
-				println(io, timetable);
-   				println(io,logs)
-			end
+				println(io, "Number of vertices $(n)")
+				println(io, "Number of vertices in heaviest subgraph $(k)")
+				println(io, "Min weight difference between heaviest and simple graph: $(m_diff)")
+				println(io, "Probability of edges existing (%): $(p_in)")
+				println(io, "Heaviest k-subgraph: $(heaviest_w))")
+		end
 	end
 end
 
@@ -261,13 +123,13 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
 
 [compat]
-CSV = "~0.10.3"
+CSV = "~0.10.4"
 Colors = "~0.12.8"
 DataFrames = "~1.3.4"
-Folds = "~0.2.7"
-GraphPlot = "~0.5.0"
-Graphs = "~1.6.0"
-PlutoUI = "~0.7.23"
+Folds = "~0.2.8"
+GraphPlot = "~0.5.2"
+Graphs = "~1.7.0"
+PlutoUI = "~0.7.39"
 SimpleWeightedGraphs = "~1.2.1"
 """
 
@@ -285,10 +147,10 @@ uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
 
 [[deps.Accessors]]
-deps = ["Compat", "CompositionsBase", "ConstructionBase", "Future", "LinearAlgebra", "MacroTools", "Requires", "Test"]
-git-tree-sha1 = "2bba2aa45df94e95b1a9c2405d7cfc3d60281db8"
+deps = ["Compat", "CompositionsBase", "ConstructionBase", "Dates", "Future", "InverseFunctions", "LinearAlgebra", "MacroTools", "Requires", "Test"]
+git-tree-sha1 = "2a1a240c2656a3198859e0f8f181ae61f294a3fb"
 uuid = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
-version = "0.1.9"
+version = "0.1.13"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -306,9 +168,9 @@ uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
 [[deps.ArnoldiMethod]]
 deps = ["LinearAlgebra", "Random", "StaticArrays"]
-git-tree-sha1 = "f87e559f87a45bece9c9ed97458d3afe98b1ebb9"
+git-tree-sha1 = "62e51b39331de8911e4a7ff6f5aaf38a5f4cc0ae"
 uuid = "ec485272-7323-5ecc-a04f-4719b315124d"
-version = "0.1.0"
+version = "0.2.0"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -329,9 +191,9 @@ version = "0.1.1"
 
 [[deps.CSV]]
 deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
-git-tree-sha1 = "9310d9495c1eb2e4fa1955dd478660e2ecab1fbb"
+git-tree-sha1 = "873fb188a4b9d76549b81465b1f75c82aaf59238"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.3"
+version = "0.10.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -341,9 +203,9 @@ version = "0.7.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "32a2b8af383f11cbb65803883837a149d10dfe8a"
+git-tree-sha1 = "0f4e115f6f34bbe43c19751c90a38b2f380637b9"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.10.12"
+version = "0.11.3"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
@@ -353,9 +215,9 @@ version = "0.12.8"
 
 [[deps.Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "96b0bc6c52df76506efc8a441c6cf1adcb1babc4"
+git-tree-sha1 = "9be8be1d8a6f44b96482c8af52238ea7987da3e3"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.42.0"
+version = "3.45.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -384,9 +246,9 @@ uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.1.1"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "cc70b17275652eb47bc9e5f81635981f13cea5c8"
+git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
@@ -396,9 +258,9 @@ version = "1.3.4"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "3daef5523dd2e769dad2365274f760ff5f282c7d"
+git-tree-sha1 = "d1fff3a548102f48987a52a2e0d114fa97d730f0"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.11"
+version = "0.18.13"
 
 [[deps.DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -426,6 +288,11 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
+[[deps.ExternalDocstrings]]
+git-tree-sha1 = "1224740fc4d07c989949e1c1b508ebd49a65a5f6"
+uuid = "e189563c-0753-4f5e-ad5c-be4293c83fb4"
+version = "0.1.1"
+
 [[deps.FilePathsBase]]
 deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "129b104185df66e408edd6625d480b7f9e9823a0"
@@ -439,10 +306,10 @@ uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
 
 [[deps.Folds]]
-deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
-git-tree-sha1 = "8559de3011264727473c96e1f794f9ddcac2bb1c"
+deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "ExternalDocstrings", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
+git-tree-sha1 = "638109532de382a1f99b1aae1ca8b5d08515d85a"
 uuid = "41a02a25-b8f0-4f67-bc48-60067656b558"
-version = "0.2.7"
+version = "0.2.8"
 
 [[deps.Formatting]]
 deps = ["Printf"]
@@ -456,15 +323,15 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[deps.GraphPlot]]
 deps = ["ArnoldiMethod", "ColorTypes", "Colors", "Compose", "DelimitedFiles", "Graphs", "LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "5e51d9d9134ebcfc556b82428521fe92f709e512"
+git-tree-sha1 = "5cd479730a0cb01f880eff119e9803c13f214cab"
 uuid = "a2cc645c-3eea-5389-862e-a155d0052231"
-version = "0.5.0"
+version = "0.5.2"
 
 [[deps.Graphs]]
 deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
-git-tree-sha1 = "57c021de207e234108a6f1454003120a1bf350c4"
+git-tree-sha1 = "4888af84657011a65afc7a564918d281612f983a"
 uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
-version = "1.6.0"
+version = "1.7.0"
 
 [[deps.Hyperscript]]
 deps = ["Test"]
@@ -473,9 +340,10 @@ uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
 version = "0.0.4"
 
 [[deps.HypertextLiteral]]
-git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
+deps = ["Tricks"]
+git-tree-sha1 = "c47c5fa4c5308f27ccaac35504858d8914e102f9"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.3"
+version = "0.9.4"
 
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]
@@ -502,6 +370,12 @@ version = "1.1.2"
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
+
+[[deps.InverseFunctions]]
+deps = ["Test"]
+git-tree-sha1 = "c6cf981474e7094ce044168d329274d797843467"
+uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
+version = "0.1.6"
 
 [[deps.InvertedIndices]]
 git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
@@ -601,19 +475,19 @@ version = "1.4.1"
 
 [[deps.Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "85b5da0fa43588c75bb1ff986493443f821c70b7"
+git-tree-sha1 = "1285416549ccfcdf0c50d4997a94331e88d68413"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.2.3"
+version = "2.3.1"
 
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[deps.PlutoUI]]
-deps = ["AbstractPlutoDingetjes", "Base64", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "5152abbdab6488d5eec6a01029ca6697dff4ec8f"
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
+git-tree-sha1 = "8d1f54886b9037091edf146b517989fc4a09efec"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.23"
+version = "0.7.39"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -711,9 +585,9 @@ version = "0.1.14"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "6976fab022fea2ffea3d945159317556e5dad87c"
+git-tree-sha1 = "383a578bdf6e6721f480e749d503ebc8405a0b22"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.2"
+version = "1.4.6"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -761,6 +635,11 @@ git-tree-sha1 = "c76399a3bbe6f5a88faa33c8f8a65aa631d95013"
 uuid = "28d57a85-8fef-5791-bfe6-a80928e7c999"
 version = "0.4.73"
 
+[[deps.Tricks]]
+git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
+uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
+version = "0.1.6"
+
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
@@ -798,37 +677,12 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═6611c9c0-a84e-11ec-072c-0b286e94fbeb
-# ╠═30b07463-2a7f-4ace-91d6-73d1d8be31a9
-# ╟─62aea3fe-8050-4817-9458-af98aeae88b6
-# ╟─4b034fbb-32d2-4685-ade2-da91b86c0680
-# ╟─b9ade87f-fd67-4996-84f2-ca2401081e4f
-# ╟─c7608d30-a159-4464-a1b0-4705466149f5
-# ╟─d00b3544-3774-4126-abc8-62e534d8a478
-# ╠═e3925cfa-9f1d-4f82-a27b-5e8129b2829b
-# ╠═cbffd573-71dc-4f2b-80ba-ba1240f1d56e
-# ╠═6cdb2cba-9925-4c37-a573-540a014941a4
-# ╠═8f5e857c-a51d-4d15-b2b5-bf00f686b1c9
-# ╟─d2c3d71a-1548-417e-9264-acb852299443
-# ╠═39b4915b-57f8-4655-adc6-b3a3d3ae068d
-# ╟─a124a4c8-398b-4f6d-aa83-aaee916b7760
-# ╟─242aa867-9430-4920-9727-301194d134fa
-# ╠═42688150-a3e3-4d2a-8c5e-c6620b4c43b0
-# ╟─2a7b010e-603c-4d3b-a63b-76cfe44b5055
-# ╠═42b340a2-1640-4766-9783-5cf40832bf53
-# ╠═7823c46b-3142-4606-a286-01a6defaf1b3
-# ╠═8f47f326-14bb-4e35-a272-4ef23c35ff92
-# ╠═94063385-f505-4b74-a915-5a5e26a2274c
-# ╠═5bf8ff8f-c3bb-43fd-9298-b15c985ade12
-# ╠═1512550e-144a-4753-87bf-d0f453ce0915
-# ╠═b3ab9aba-6c15-4e58-926c-f00d2950d642
-# ╠═bc4e4d34-cd8d-4751-b97e-d0e991a5914c
-# ╠═519686e3-2c3c-46b3-97b0-20077a42ead9
-# ╠═5b0f0db9-8ac1-41f2-8dec-7e5d3ba5a9bc
-# ╠═29fee730-866b-456a-b6c7-0e7c30c2152c
-# ╠═0639a2cf-3181-407e-bac5-4969d679e851
-# ╠═265741e9-2057-49d3-9da3-792471414ba0
-# ╠═7b5b8370-bd48-4c5d-8ae1-20e694ae9591
-# ╠═3abf3570-4de2-457b-9197-b15c3683c818
+# ╠═61a33cd0-e69b-11ec-17de-cd8ef77dfbc1
+# ╟─44fd63d6-ad4f-4bd5-8ab2-adabbd020eaa
+# ╠═35e2227c-011e-44d2-8ff8-a042f5498be4
+# ╠═bd8e2736-9f1c-4ef7-b71a-2183d08b6dd3
+# ╟─4f11373f-5c37-4dae-aea1-75b058c111cc
+# ╟─6e55b18b-54d4-4381-9b70-c89f245d5a2d
+# ╠═1dbc84ae-929d-4c6e-bdf8-a929c6cf0736
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

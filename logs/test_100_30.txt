@@ -1,0 +1,5 @@
+Number of vertices 100
+Number of vertices in heaviest subgraph 30
+Min weight difference between heaviest and simple graph: 15
+Probability of edges existing (%): 30
+Heaviest k-subgraph: 118.1180000000002)
