@@ -49,7 +49,7 @@ begin
 	implementation_jl = ingredients("./implementation_aco.jl")
 	import .implementation_jl: ACOSettings
 	implementation_k_heavy_jl = ingredients("./implementation_k_heavy.jl")
-	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community, calculate_heaviness
+	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community, calculate_heaviness, HeaviestACOK_get_pheromone
 end
 
 # ╔═╡ 2cb1d11c-5ba0-4f2b-b06f-865658904a5f
@@ -120,7 +120,7 @@ end
 for (j, (a, i)) in enumerate(zip(number_of_ants, number_of_iterations))
 	vars = ACOSettings(
 		1, # α
-		1, # β
+		2, # β
 		a, # number_of_ants
 		0.8, # ρ
 		0.005, # ϵ
@@ -131,12 +131,13 @@ for (j, (a, i)) in enumerate(zip(number_of_ants, number_of_iterations))
 		vars,
 		k,
 		false,
-		Integer(ceil(k*1.5))
+		Integer(ceil(k*3))
 	)
+	
 	k_sub_g = Folds.map(_ -> HeaviestACOK(g, vars3), 1:number_of_tests)
 	goods = Folds.map(x -> good(solution_to_community(g, x)), k_sub_g)
-	@show Folds.map(x -> solution_to_community(g, x), k_sub_g)
-	@show calculate_heaviness(g, k_sub_g[1])
+	#@show Folds.map(x -> solution_to_community(g, x), k_sub_g)
+	#@show calculate_heaviness(g, k_sub_g[1])
 	precision[j] = sum(fst.(goods)) / number_of_tests
 	is_good[j] = sum(snd.(goods)) / number_of_tests
 end

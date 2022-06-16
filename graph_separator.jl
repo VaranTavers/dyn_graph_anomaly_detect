@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.4
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -136,20 +136,32 @@ begin
 	end
 end
 
+# ╔═╡ caa2e0ad-a607-4ec3-89d2-377eaa67223c
+md"""
+Create $(@bind ok CheckBox())
+
+Minimum number of edges $(@bind min_ne NumberField(1:30))
+"""
+
+# ╔═╡ 350dffb6-2f27-4642-9eea-1626c58e2407
+graphs_filtered = collect(filter(x -> ne(x) > min_ne, graphs))
+
 # ╔═╡ e74d5b02-0798-491b-8aed-d7f0edf85061
 begin
-	for (i, g) in enumerate(graphs)
-		savegraph("dynamic_graphs/$(name)$(i).lgz", g)
+	if ok
+		for (i, g) in enumerate(graphs_filtered) 
+				savegraph("dynamic_graphs/$(name)$(i).lgz", g)
+		end
 	end
 end
 
 # ╔═╡ 26f3bb54-68ca-4cb1-a02f-296189dc194f
-@bind g_i Slider(1:length(graphs))
+@bind g_i Slider(1:length(graphs_filtered))
 
 # ╔═╡ ab962898-0d64-4529-9a91-d2e72bbf60a1
 begin
-	nodelabel = 1:nv(graphs[g_i])
-	gplot(graphs[g_i], nodesize=3, nodelabel=nodelabel)
+	nodelabel = 1:nv(graphs_filtered[g_i])
+	gplot(graphs_filtered[g_i], nodesize=3, nodelabel=nodelabel)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -714,6 +726,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═3a374c8a-c03f-43ad-8be8-8c3ae6a8baab
 # ╠═80769eac-ccd6-4340-a913-33fa2cd7041c
 # ╠═61b0f284-9f45-43ef-9bec-fa948e130dc8
+# ╠═caa2e0ad-a607-4ec3-89d2-377eaa67223c
+# ╠═350dffb6-2f27-4642-9eea-1626c58e2407
 # ╠═e74d5b02-0798-491b-8aed-d7f0edf85061
 # ╠═26f3bb54-68ca-4cb1-a02f-296189dc194f
 # ╠═ab962898-0d64-4529-9a91-d2e72bbf60a1

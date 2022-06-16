@@ -86,6 +86,7 @@ function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
 
 	# graph.weights[i,j] * 
 	p = [ (τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
+
 	if maximum(p) == 0
 		p[i] = 1
 	end
@@ -97,12 +98,11 @@ function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
 end
 
 # ╔═╡ 0ec92459-f5d7-4a0c-9ace-9324997dff17
-function generate_s(inner::ACOInner, vars::ACOKSettings)
+function generate_s(inner::ACOInner, vars::ACOKSettings, i)
 	if vars.k == vars.solution_max_length
 		return generate_s_old(inner, vars)
 	end
 	
-	i = rand(1:inner.n)
 	points = zeros(Int64, vars.solution_max_length + 1)
 	points[1] = i
 	j = 2
@@ -114,7 +114,7 @@ function generate_s(inner::ACOInner, vars::ACOKSettings)
 
 	if j == vars.solution_max_length + 1 && length(unique(points)) - 1 < vars.k
 		if vars.force_every_solution
-			return generate_s(inner, vars)
+			return generate_s(inner, vars, i)
 		else
 			return
 		end
@@ -168,7 +168,7 @@ function calculate_η_ij(graph, i, j, m)
 		return 0;
 	end
 
-	graph.weights[i, j] - m + 1
+	graph.weights[i, j] - m + 1 + sum(graph.weights[:, j])
 end
 
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
@@ -237,8 +237,12 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 	# While termination condition not met
 	for i in 1:vars.acos.max_number_of_iterations
 		# Construct new solution s according to Eq. 2
-		
-		S = Folds.map(x -> generate_s(inner, vars), zeros(vars.acos.number_of_ants))
+
+		if i < vars.acos.max_number_of_iterations - 3
+			S = Folds.map(x -> generate_s(inner, vars, rand(1:inner.n)), zeros(vars.acos.number_of_ants))
+		else
+			S = Folds.map(x -> generate_s(inner, vars, x), 1:inner.n)
+		end
 
 		if length(filter(x -> x != nothing, S)) > 0
 			# Update iteration best
@@ -329,7 +333,7 @@ function HeaviestACOK_get_pheromone(graph, vars_base::ACOKSettings)
 
 	vars = copy_replace_funcs(vars_base, calculate_heaviness, compute_solution)
 	
-	HeaviestACOK(graph, vars, η, τ)
+	ACOK_get_pheromone(graph, vars, η)
 end
 
 # ╔═╡ 7e37429c-521d-4d6a-bebd-475cb9573803
