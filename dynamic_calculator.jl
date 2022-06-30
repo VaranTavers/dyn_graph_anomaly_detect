@@ -188,7 +188,7 @@ end
 md"""
 Timestamp: $(@bind g_i Scrubbable(1:length(graphs)))
 
-Plot type: $(@bind p_type Select(["Communities", "Heaviest subgraph", "Heaviest k subgraph"]))
+Plot type: $(@bind p_type Select(["Communities", "Heaviest subgraph", "Heaviest k subgraph", "Combined"]))
 
 Show anomalies: $(@bind show_anomalies CheckBox())
 
@@ -202,7 +202,7 @@ begin
 	if show_anomalies
 		if p_type == "Communities"
 			collect(zip(anomaly_colors, ["No anomaly", "Community Activation/Creation", "Community Deactivation/Disappearance", "Unusual size change/appearance", "Merge / Split", "Outliner community change", "Stable community change"]))
-		else 
+		else
 			collect(zip(anomaly_colors, ["No anomaly", "Entered into heaviest subgraph", "Left heaviest subgraph"]))
 		end
 	end
@@ -216,9 +216,12 @@ begin
 			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=colors[communities_pred2[g_i] .+ 1])
 		elseif p_type == "Heaviest subgraph"
 			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=[ j ? colors[2] : colors[1] for j in heaviest_pred[g_i]])
-		else
+		elseif p_type == "Heaviest k subgraph"
 			community = solution_to_community(graphs[g_i], heaviest_k_pred[g_i])
 			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=[ j > 0 ? colors[2] : colors[1] for j in community])
+		else
+			community = solution_to_community(graphs[g_i], heaviest_k_pred[g_i])
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=colors[communities_pred2[g_i] .+ 1], nodestrokelw=map(x -> x == 1 ? 3 : 0, community), nodestrokec=colorant"red")
 		end
 	else
 		if p_type == "Communities"
@@ -235,11 +238,17 @@ begin
 			nodefillc = getAnomalyHeaviestPoints(heaviest_anomaly, g_i, nv(graphs[g_i]))
 			edgestrokec = getAnomalyHeaviestEdges(heaviest_anomaly, g_i, ne(graphs[g_i]))
 			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=anomaly_colors[nodefillc])
-		else
+		elseif p_type == "Heaviest k subgraph"
 			nodefillc = getAnomalyKHeaviestPoints(kheaviest_anomaly, g_i, nv(graphs[g_i]))
 		
 			edgestrokec = getAnomalyKHeaviestEdges(graphs[g_i], kheaviest_anomaly, g_i, ne(graphs[g_i]))
 			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=anomaly_colors[nodefillc])
+		else
+			nodestrokec = getAnomalyKHeaviestPoints(kheaviest_anomaly, g_i, nv(graphs[g_i]))
+			nodefillc = map( i -> g_i == 1 || (communities_pred2[g_i - 1][i] == communities_pred2[g_i][i]) ? colorant"turquoise" : colorant"blue" , 1:nv(graphs[g_i])) 
+		
+			edgestrokec = getAnomalyKHeaviestEdges(graphs[g_i], kheaviest_anomaly, g_i, ne(graphs[g_i]))
+			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=nodefillc, nodestrokelw=3, nodestrokec=anomaly_colors[nodestrokec])
 		end
 	end
 	plot
@@ -997,7 +1006,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╟─a5f00865-bc76-4f79-bf1f-43239c025304
 # ╟─31c046f1-5b2b-4963-99a5-6ab4924cc487
 # ╟─df1bab46-1112-498d-961d-da9b45aa0461
-# ╟─9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
+# ╠═9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
 # ╟─c6f101a3-dee1-4cb9-85f8-24ff71a45efc
 # ╟─96e113c9-df9b-49a4-8382-487c6caa2bb2
 # ╟─4b3b4b0e-4678-401e-947a-0d60615d3677
