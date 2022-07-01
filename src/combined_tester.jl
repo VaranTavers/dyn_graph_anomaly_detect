@@ -67,8 +67,8 @@ K: $(@bind k NumberField(1:100, default=25))
 
 # ╔═╡ 5f22070f-c26a-49e5-aadf-e112c74d2766
 begin
-	g = loadgraph(name, SWGFormat())
-	g2 = loadgraph(name2, SWGFormat())
+	g = loadgraph("../graphs/$name", SWGFormat())
+	g2 = loadgraph("../graphs/$name2", SWGFormat())
 	gplot(g, nodelabel=1:nv(g))
 end
 
@@ -76,7 +76,7 @@ end
 gplot(g2, nodelabel=1:nv(g2))
 
 # ╔═╡ abceeb90-58b0-4841-ba05-0ce8608e25b9
-real = CSV.read(name_com, DataFrame, header=false)[!, "Column1"]
+real = CSV.read("../graphs/$name_com", DataFrame, header=false)[!, "Column1"]
 
 # ╔═╡ c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
 begin

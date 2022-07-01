@@ -263,7 +263,7 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("graphs/changhonghao2013 (copy).lgz", SWGFormat())
+	g = loadgraph("../../graphs/changhonghao2013 (copy).lgz", SWGFormat())
 	
 	vars = ACOSettings(
 			1, # α
@@ -282,7 +282,7 @@ end
 
 # ╔═╡ 18788290-bc3a-4ef9-ae9b-9034957228f5
 begin
-	g2 = loadgraph("LFR/network6.lgz", SWGFormat())
+	g2 = loadgraph("../../graphs/LFR/network6.lgz", SWGFormat())
 	
 	vars2 = ACOSettings(
 			1, # α
@@ -304,7 +304,7 @@ phe[7, :]
 
 # ╔═╡ 5a70e933-f62e-4008-a683-a36e58b7da6b
 begin
-	g3 = loadgraph("dynamic_graphs/syntetic/school_test/school_test52.lgz", SWGFormat())
+	g3 = loadgraph("../../graphs/dynamic_graphs/syntetic/school_test/school_test52.lgz", SWGFormat())
 	
 	@time c3 = CommunityACO(g3, vars2)
 	calculate_modularity(g3, c3)

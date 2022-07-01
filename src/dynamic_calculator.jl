@@ -112,7 +112,7 @@ begin
 		(x, τ_c)
 	end
 
-	graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
+	graphs = [loadgraph("../graphs/dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
 
 end
 

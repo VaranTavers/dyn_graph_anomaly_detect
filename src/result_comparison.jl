@@ -43,7 +43,7 @@ $(@bind number_of_files NumberField(0:100, default=20))
 """
 
 # ╔═╡ def88986-8581-4ac1-9582-6906ff24e790
-graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
+graphs = [loadgraph("../graphs/dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
 
 # ╔═╡ 7f794c0e-6eda-4f05-ac3e-aafe26781fcf
 md"""

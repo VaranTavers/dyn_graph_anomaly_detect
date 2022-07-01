@@ -77,7 +77,7 @@ Default other: $(@bind chk_other NumberField(0:100, default=100))
 
 # ╔═╡ 5f22070f-c26a-49e5-aadf-e112c74d2766
 begin
-	g = loadgraph(name, SWGFormat())
+	g = loadgraph("../graphs/$name", SWGFormat())
 	gplot(g, nodelabel=1:nv(g))
 end
 

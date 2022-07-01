@@ -67,7 +67,7 @@ md"""
 """
 
 # ╔═╡ a55bd0fb-4983-44f1-8140-699430a2cc1f
-gz = loadgraph("graphs/zachary.lgz", SWGFormat())
+gz = loadgraph("../graphs/zachary.lgz", SWGFormat())
 
 # ╔═╡ 56ea7cb9-2b9e-4f0b-9a64-c9a87352885c
 cz = Folds.map(_ -> CommunityACO(gz, vars), 1:number_of_runs)
@@ -83,7 +83,7 @@ The modularity is close to the one in the Chang Honghao Paper (0,420)
 """
 
 # ╔═╡ 3a9f3626-2bac-447d-9255-6be61939f748
-gd = loadgraph("graphs/dolphins.lgz", SWGFormat())
+gd = loadgraph("../graphs/dolphins.lgz", SWGFormat())
 
 # ╔═╡ 22f24ab8-bb49-4593-a759-57d7f247a3ec
 cd = Folds.map(_ -> CommunityACO(gd, vars), 1:number_of_runs)
@@ -101,7 +101,7 @@ Runs in around 10 s
 """
 
 # ╔═╡ bd8edef2-2b8d-41b9-8fac-3aebeefd1384
-gf = loadgraph("graphs/football.lgz", SWGFormat())
+gf = loadgraph("../graphs/football.lgz", SWGFormat())
 
 # ╔═╡ 4752d3c4-f003-4bf4-93e5-f49f8c3c66e4
 cf = Folds.map(_ -> CommunityACO(gf, vars), 1:number_of_runs)
@@ -119,7 +119,7 @@ Runs in around 56s
 """
 
 # ╔═╡ 2e5a0d5f-0162-4bcb-943e-d550cf898ecf
-gb = loadgraph("graphs/books.lgz", SWGFormat())
+gb = loadgraph("../graphs/books.lgz", SWGFormat())
 
 # ╔═╡ b10865d6-b996-443c-8fcb-a3534ccd970c
 cb = Folds.map(_ -> CommunityACO(gb, vars), 1:number_of_runs)
@@ -154,8 +154,8 @@ calculate_average_nmi(real, preds) = sum(Folds.map(x -> normalized_mutual_inform
 
 # ╔═╡ d8684484-7770-48cc-bb00-43ad8a1067ed
 begin
-	graphs = [loadgraph("LFR/network$i.lgz", SWGFormat()) for i in 1:12]
-	communities_real = [CSV.read("LFR/community$i.dat", DataFrame, header=false)[!, "Column1"] for i in 1:12]
+	graphs = [loadgraph("../graphs/LFR/network$i.lgz", SWGFormat()) for i in 1:12]
+	communities_real = [CSV.read("../graphs/LFR/community$i.dat", DataFrame, header=false)[!, "Column1"] for i in 1:12]
 
 	communities_pred = collect(Folds.map(x -> apply_aco_multiple(x, number_of_runs), graphs))
 end

@@ -349,7 +349,7 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("graphs/heavy/changhonghao.lgz", SWGFormat())
+	g = loadgraph("../../graphs/heavy/changhonghao.lgz", SWGFormat())
 	
 	vars = ACOSettings(
 			1, # α
