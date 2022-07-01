@@ -56,7 +56,7 @@ end
 md"""
 Input list (CSV): $(@bind name_list_file TextField())
 
-Number of tests: $(@bind number_of_tests NumberField(0:100, default=20))
+Number of tests: $(@bind number_of_tests NumberField(0:100, default=10))
 """
 
 # ╔═╡ f40f14fe-65c0-444b-b97e-790c5751c126
@@ -66,7 +66,9 @@ end
 
 # ╔═╡ 5f22070f-c26a-49e5-aadf-e112c74d2766
 begin
-	g_s = map(name -> loadgraph("../graphs/$name", SWGFormat()), df["Path"])
+	paths_zip = zip(df[!, "Folder"], df[!, "Filename"])
+	paths = map(((a,b),) -> "$a/$b", paths_zip)
+	g_s = map(name -> loadgraph("../graphs/dense/$name", SWGFormat()), paths)
 end
 
 # ╔═╡ df9a3d7c-d414-434b-862b-8727d915f95d
@@ -102,7 +104,7 @@ for (i, g) in enumerate(g_s)
 	)
 	vars3 = ACOKSettings(
 		vars,
-		k,
+		df[i, "K",],
 		false
 	)
 
@@ -120,6 +122,26 @@ is_good
 
 # ╔═╡ 09af520d-83ed-4538-aee5-16b0263b6b7b
 precision
+
+# ╔═╡ 66c2ebb3-81a4-4001-bed3-9b905cff31f7
+function save_result_and_stats(filename, mat)
+	rows = eachrow(mat)
+	means = map(mean, rows)
+	stds = map(std, rows)
+	mins = map(minimum, rows)
+	maxs = map(maximum, rows)
+
+	mat_res = hcat(mat, means, stds, mins, maxs)
+	
+
+	CSV.write(filename, Tables.table(mat_res), writeheader = false)
+end
+
+# ╔═╡ 42372009-dd56-4e0c-8617-5ca0d299c98b
+save_result_and_stats("../graphs/dense_is_good.csv", is_good)
+
+# ╔═╡ 4abf838f-44cb-4fcf-89b1-762fa15f39b9
+save_result_and_stats("../graphs/dense_prec.csv", is_good)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -834,5 +856,8 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═8a5630d8-b98a-49a8-84a5-763f8c104a0f
 # ╠═fcbf574c-9631-4b61-91b6-31b573d381a5
 # ╠═09af520d-83ed-4538-aee5-16b0263b6b7b
+# ╠═66c2ebb3-81a4-4001-bed3-9b905cff31f7
+# ╠═42372009-dd56-4e0c-8617-5ca0d299c98b
+# ╠═4abf838f-44cb-4fcf-89b1-762fa15f39b9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
