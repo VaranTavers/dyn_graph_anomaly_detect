@@ -14,7 +14,7 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 4d1c9e56-9a19-11ec-176a-e17ab3202d23
+# ╔═╡ 36f0d630-e6f2-11ec-299e-231247a15e8f
 begin
 	using Graphs
 	using SimpleWeightedGraphs
@@ -29,7 +29,7 @@ begin
 	using Statistics
 end
 
-# ╔═╡ d4732069-a523-467e-8970-e67e51b7fe57
+# ╔═╡ 053c343c-4918-4e6d-9d0a-3b6a1899183c
 function ingredients(path::String)
 	# this is from the Julia source code (evalfile in base/loading.jl)
 	# but with the modification that it returns the module instead of the last object
@@ -44,254 +44,116 @@ function ingredients(path::String)
 	m
 end
 
-# ╔═╡ 102b3c2a-9506-4a59-8c8d-e38692e22742
+# ╔═╡ 0d0bc6a7-869e-4e96-aa1b-1ecc691e5cc7
 begin
-	implementation_jl = ingredients("./implementation_community.jl")
-	import .implementation_jl: CommunityACO, calculate_modularity, ACOSettings, normalized_mutual_information, CommunityACO_get_pheromone
-	
-	implementation_heavy_jl = ingredients("./implementation_heavy.jl")
-	import .implementation_heavy_jl: HeaviestACO
-	
-	implementation_k_heavy_jl = ingredients("./implementation_k_heavy.jl")
-	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community
-	
-	com_func_jl = ingredients("./community_functions.jl")
-	import .com_func_jl: relabel_communities, calculate_merging, calculate_splitting, calculate_unusual_appearance, calculate_community_activation, calculate_community_deactivation, calculate_community_similarity2, calculate_community_similarity4
-	
-	node_func_jl = ingredients("./node_functions.jl")
-	import .node_func_jl: calculate_anomaly_vector_quantity, calculate_anomaly_vector_category, detect_change_anomaly_vector, detect_outlier_anomaly_vector
-
-	anomaly_calc_jl = ingredients("./anomaly_calculator.jl")
-	import .anomaly_calc_jl: getCommunityAnomaliesByTimestamp, getVertexAnomaliesByTimestamp,  getHeaviestSubgraphAnomaliesByTimestamp, getHeaviestKSubgraphAnomaliesByTimestamp, getCommunityAnomaliesText, getVertexAnomaliesText, getHeaviestAnomaliesText, getKHeaviestAnomaliesText, getPointAnomalyType, getAnomalyVertexPoints, getAnomalyHeaviestPoints,  getAnomalyHeaviestEdges, getAnomalyKHeaviestPoints, getAnomalyKHeaviestEdges
+	implementation_k_heavy_jl = ingredients("./ACO/implementation_k_heavy.jl")
+	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community, calculate_heaviness, HeaviestACOK_get_pheromone
+	implementation_com_jl = ingredients("./ACO/implementation_community.jl")
+	import .implementation_com_jl: CommunityACO, ACOSettings, normalized_mutual_information
 end
 
-# ╔═╡ 2fb037ea-78c1-470c-8364-9a132825c126
+# ╔═╡ 2cb1d11c-5ba0-4f2b-b06f-865658904a5f
 md"""
-Evolving communities: $(@bind evolve CheckBox())
+Input name: $(@bind name TextField())
 
-Continuous pheromones (may result in slowdowns): $(@bind continuous CheckBox())
+Input name2: $(@bind name2 TextField())
 
-Check heaviest subgraph (very slow on large graphs):  $(@bind check_heavy CheckBox())
+Communities: $(@bind name_com TextField())
+
+Number of tests: $(@bind number_of_tests NumberField(0:100, default=20))
+
+K: $(@bind k NumberField(1:100, default=25))
 """
 
-# ╔═╡ 3f4eb27b-8834-4997-8f8b-02d99250d2f8
-md"""
-Input name (without number):
-
-$(@bind name TextField())
-"""
-
-# ╔═╡ 90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
-md"""
-Number of files:
-
-$(@bind number_of_files NumberField(0:100, default=20))
-"""
-
-# ╔═╡ 144b12d8-31e9-41bc-a078-7151f0e47960
-Threads.nthreads()
-
-# ╔═╡ 2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
+# ╔═╡ 5f22070f-c26a-49e5-aadf-e112c74d2766
 begin
-	vars = ACOSettings(
-		1.5, # α
-		2, # β
-		60, # number_of_ants
-		0.7, # ρ
-		0.005, # ϵ
-		150, # max_number_of_iterations
-		300 # starting_pheromone_ammount
-	)
-
-	apply_aco(x) = CommunityACO(x, vars)
-
-	function  reducer_ACO(X, g)
-		x, τ = X
-		c2, τ_c = CommunityACO(g, vars, τ)
-		push!(x, c2)
-		(x, τ_c)
-	end
-
-	graphs = [loadgraph("dynamic_graphs/$(name)$i.lgz", SWGFormat()) for i in 1:number_of_files]
-
+	g = loadgraph(name, SWGFormat())
+	g2 = loadgraph(name2, SWGFormat())
+	gplot(g, nodelabel=1:nv(g))
 end
 
-# ╔═╡ e388a5ae-d836-443c-b061-325647f305d3
-@time if !continuous
-	communities_pred = Folds.map(apply_aco, graphs)
-else
-	c, τ_c = CommunityACO_get_pheromone(graphs[1], vars::ACOSettings)
-	communities_pred, _ = reduce(reducer_ACO, graphs[2:end]; init=([c], τ_c))
-end
+# ╔═╡ 9644b405-8a92-4944-a636-c11c788fc285
+gplot(g2, nodelabel=1:nv(g2))
 
-# ╔═╡ 09f8c5e3-aa88-45e5-9ef5-119d54cdc6c3
+# ╔═╡ abceeb90-58b0-4841-ba05-0ce8608e25b9
+real = CSV.read(name_com, DataFrame, header=false)[!, "Column1"]
+
+# ╔═╡ c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
 begin
-	communities_pred2 = relabel_communities(communities_pred, 0.7; changing=evolve, similarity_f=calculate_community_similarity4)
-	matrix = mapreduce(permutedims, vcat, communities_pred2);
-	num_of_relabeled_communities = maximum(maximum.(communities_pred2))
-	
-	community_size_lists = [map(x -> count(x .== i), communities_pred2) for i in 1:num_of_relabeled_communities];
+	α_vec = [1.5]
+	β_vec = collect(0.1:0.1:1)
+	#ρ_vec = collect(0.1:0.1:1)
 end
 
-# ╔═╡ 9050e59a-4720-45d2-92fb-b47fe4e825a9
-function applyHACO(x, vars2)
-	@time HeaviestACO(x, vars2)
-end
-
-# ╔═╡ 0bbda310-2c0d-4f32-9ecc-762c37a91d46
-# Heavy calculations have to be done for bigger graphs, so we'll lower the parameters for this application.
-begin
-	vars2 = ACOSettings(
-		1, # α
-		2, # β
-		10, # number_of_ants
-		0.8, # ρ
-		0.005, # ϵ
-		25, # max_number_of_iterations
-		300 # starting_pheromone_ammount
-	)
-	if check_heavy
-		heaviest_pred = Folds.map(x -> applyHACO(x, vars2), graphs);
-	else
-		heaviest_pred = map(x -> [], graphs)
-	end
-	
-end
-
-# ╔═╡ a33cbac5-e324-4be4-a263-ceb39af987bd
-md"""
-k = $(@bind k Scrubbable(1:60))
-"""
-
-# ╔═╡ 88d479fa-1da6-404f-a2af-051cf23dc733
-# The Heaviest k-subgraph algorithm requires some extra parameters
-begin
-	vars3 = ACOKSettings(
-		vars,
-		k,
-		false,
-		Integer(ceil(k*1.5))
-	)
-	
-	@time heaviest_k_pred = Folds.map(x -> HeaviestACOK(x, vars3), graphs);
-end
-
-# ╔═╡ a5f00865-bc76-4f79-bf1f-43239c025304
-begin
-	com_anomaly = getCommunityAnomaliesByTimestamp([], communities_pred2, community_size_lists);
-	vertex_anomaly = getVertexAnomaliesByTimestamp(matrix);
-	heaviest_anomaly = getHeaviestSubgraphAnomaliesByTimestamp(graphs, heaviest_pred);
-	kheaviest_anomaly = getHeaviestKSubgraphAnomaliesByTimestamp(graphs, heaviest_k_pred);
-end
-
-# ╔═╡ 31c046f1-5b2b-4963-99a5-6ab4924cc487
-md"""
-Timestamp: $(@bind g_i Scrubbable(1:length(graphs)))
-
-Plot type: $(@bind p_type Select(["Communities", "Heaviest subgraph", "Heaviest k subgraph"]))
-
-Show anomalies: $(@bind show_anomalies CheckBox())
-
-C (spring layout distance): $(@bind C_D Scrubbable(1:50))
-"""
-
-# ╔═╡ df1bab46-1112-498d-961d-da9b45aa0461
-begin
-	colors = distinguishable_colors(num_of_relabeled_communities + 1);
-	anomaly_colors = distinguishable_colors(10);
-	if show_anomalies
-		if p_type == "Communities"
-			collect(zip(anomaly_colors, ["No anomaly", "Community Activation/Creation", "Community Deactivation/Disappearance", "Unusual size change/appearance", "Merge / Split", "Outliner community change", "Stable community change"]))
-		else 
-			collect(zip(anomaly_colors, ["No anomaly", "Entered into heaviest subgraph", "Left heaviest subgraph"]))
-		end
-	end
-end
-
-# ╔═╡ 9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
-begin
-	layout=(args...)->spring_layout(args...; C=C_D)
-	if !show_anomalies
-		if p_type == "Communities"
-			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=colors[communities_pred2[g_i] .+ 1])
-		elseif p_type == "Heaviest subgraph"
-			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=[ j ? colors[2] : colors[1] for j in heaviest_pred[g_i]])
-		else
-			community = solution_to_community(graphs[g_i], heaviest_k_pred[g_i])
-			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=[ j > 0 ? colors[2] : colors[1] for j in community])
-		end
-	else
-		if p_type == "Communities"
-			
-			vertex_an = getAnomalyVertexPoints(vertex_anomaly, g_i, nv(graphs[g_i]))
-			
-			# We fill out the colors based on the Community level anomalies
-			nodefillc = [getPointAnomalyType(com_anomaly, g_i, matrix[g_i, j], matrix[max(1, g_i-1), j]) for j in 1:nv(graphs[g_i])]
-			# If a vertex is not involved in a Community level anomaly, we check wether it is involved in a vertex level one.
-			nodefillc = [ j == 1 ? vertex_an[i] : j for (i,j) in enumerate(nodefillc)]
-			
-			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), nodefillc=anomaly_colors[nodefillc])
-		elseif p_type == "Heaviest subgraph"
-			nodefillc = getAnomalyHeaviestPoints(heaviest_anomaly, g_i, nv(graphs[g_i]))
-			edgestrokec = getAnomalyHeaviestEdges(heaviest_anomaly, g_i, ne(graphs[g_i]))
-			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=anomaly_colors[nodefillc])
-		else
-			nodefillc = getAnomalyKHeaviestPoints(kheaviest_anomaly, g_i, nv(graphs[g_i]))
-		
-			edgestrokec = getAnomalyKHeaviestEdges(graphs[g_i], kheaviest_anomaly, g_i, ne(graphs[g_i]))
-			plot = gplot(graphs[g_i], nodesize=20, layout=layout, nodelabel=1:nv(graphs[g_i]), edgestrokec=anomaly_colors[edgestrokec], nodefillc=anomaly_colors[nodefillc])
-		end
-	end
-	plot
-end
-
-# ╔═╡ c6f101a3-dee1-4cb9-85f8-24ff71a45efc
-begin
-	com_text = getCommunityAnomaliesText(com_anomaly, g_i)
-	vert_text = getVertexAnomaliesText(vertex_anomaly, g_i)
-	h_text = getHeaviestAnomaliesText(heaviest_anomaly, g_i)
-	kh_text = getKHeaviestAnomaliesText(kheaviest_anomaly, g_i)
-	
-md"""
-## Community anomalies
-	
-$(Markdown.parse(com_text))
-	
-## Vertex anomalies
-	
-$(Markdown.parse(vert_text))
-	
-## Heaviest subgraph anomalies
-	
-$(Markdown.parse(h_text))
-	
-## Heaviest k-subgraph anomaliest.
-	
-$(Markdown.parse(kh_text))
-"""
-end
-
-# ╔═╡ 96e113c9-df9b-49a4-8382-487c6caa2bb2
+# ╔═╡ df9a3d7c-d414-434b-862b-8727d915f95d
 begin
 	fst((a, _)) = a
 	snd((_, b)) = b
 end
 
-# ╔═╡ 4b3b4b0e-4678-401e-947a-0d60615d3677
-md"""
-Save results $(@bind save_res CheckBox())
-"""
+# ╔═╡ d932cc30-26fc-4f49-b64d-a4209d5e9cd0
+function good(c1)
+	ck = [ i <= k ? 1 : 0 for i in 1:length(c1)]
 
-# ╔═╡ 9a8880c1-6058-48fc-b302-00ab1bdcd55d
-if save_res
-	for (i, com_list) in enumerate(communities_pred2)
-		CSV.write("dynamic_communities/com_$(i).csv", Tables.table(com_list), writeheader=false)
-	end
-	for (i, (g, edge_list)) in enumerate(zip(graphs, heaviest_k_pred))
-		CSV.write("dynamic_communities/k_edges_$(i).csv", Tables.table(hcat(fst.(edge_list), snd.(edge_list))), writeheader=false)
-		CSV.write("dynamic_communities/k_com_$(i).csv", Tables.table(solution_to_community(g, edge_list)), writeheader=false)
+	res = 1 - count((c1 .== 1) .⊻ (ck .== 1)) / length(c1)
+
+	(res, floor(res))
+end
+
+# ╔═╡ b886e54f-293e-4628-b17c-151e67ef609a
+begin
+	results_com = [[] for _ in 1:length(α_vec), _ in 1:length(β_vec)]
+	results_k_heavy = [[] for _ in 1:length(α_vec), _ in 1:length(β_vec)]
+end
+
+# ╔═╡ 8a5630d8-b98a-49a8-84a5-763f8c104a0f
+for (j, α) in enumerate(α_vec)
+	for (k, β) in enumerate(β_vec)
+		vars = ACOSettings(
+			α,
+			2.0,
+			60, # number_of_ants
+			β,
+			0.005, # ϵ
+			150, # max_number_of_iterations
+			150 # starting_pheromone_ammount
+		)
+		vars3 = ACOKSettings(
+			vars,
+			k,
+			false,
+			Integer(ceil(k*2))
+		)
+	
+		com_sub_g =  Folds.map(_ -> CommunityACO(g2, vars), 1:number_of_tests)
+		c_goods = Folds.map(x -> normalized_mutual_information(real, x), com_sub_g)
+		
+		
+		k_sub_g = Folds.map(_ -> HeaviestACOK(g, vars3), 1:number_of_tests)
+		k_goods = Folds.map(x -> good(solution_to_community(g, x)), k_sub_g)
+
+		append!(results_com[j, k], c_goods)
+		append!(results_k_heavy[j, k], k_goods)
 	end
 end
+
+# ╔═╡ 2df75dfd-19c5-4014-bffc-994c92ede223
+mean_com = map(mean, results_com)[:]
+
+# ╔═╡ c7f31065-d1dd-4cfd-be8c-283d8505f41b
+σ_com = map(std, results_com)[:]
+
+# ╔═╡ 66db8c94-16fa-488a-a18d-553e742f9507
+max_com = map(maximum, results_com)[:]
+
+# ╔═╡ c82f255a-c5e5-4495-9729-db1678a7aa1e
+mean_k = map(x -> mean(fst.(x)), results_k_heavy)[:]
+
+# ╔═╡ 8219b7fd-22dd-499d-9ee5-8178b998fc1f
+σ_k = map(x -> std(fst.(x)), results_k_heavy)[:]
+
+# ╔═╡ 775fbdb6-fa43-4c57-b640-f654f5915f95
+max_k = map(x -> maximum(fst.(x)), results_k_heavy)[:]
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -309,14 +171,14 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-CSV = "~0.10.2"
+CSV = "~0.10.4"
 Colors = "~0.12.8"
-DSP = "~0.7.5"
-DataFrames = "~1.3.2"
-Folds = "~0.2.7"
-GraphPlot = "~0.5.0"
-Graphs = "~1.6.0"
-PlutoUI = "~0.7.23"
+DSP = "~0.7.6"
+DataFrames = "~1.3.4"
+Folds = "~0.2.8"
+GraphPlot = "~0.5.2"
+Graphs = "~1.7.0"
+PlutoUI = "~0.7.39"
 SimpleWeightedGraphs = "~1.2.1"
 StatsBase = "~0.33.16"
 """
@@ -325,7 +187,7 @@ StatsBase = "~0.33.16"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -341,10 +203,10 @@ uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
 
 [[deps.Accessors]]
-deps = ["Compat", "CompositionsBase", "ConstructionBase", "Future", "LinearAlgebra", "MacroTools", "Requires", "Test"]
-git-tree-sha1 = "2bba2aa45df94e95b1a9c2405d7cfc3d60281db8"
+deps = ["Compat", "CompositionsBase", "ConstructionBase", "Dates", "Future", "InverseFunctions", "LinearAlgebra", "MacroTools", "Requires", "Test"]
+git-tree-sha1 = "2a1a240c2656a3198859e0f8f181ae61f294a3fb"
 uuid = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
-version = "0.1.9"
+version = "0.1.13"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -362,9 +224,9 @@ uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
 [[deps.ArnoldiMethod]]
 deps = ["LinearAlgebra", "Random", "StaticArrays"]
-git-tree-sha1 = "f87e559f87a45bece9c9ed97458d3afe98b1ebb9"
+git-tree-sha1 = "62e51b39331de8911e4a7ff6f5aaf38a5f4cc0ae"
 uuid = "ec485272-7323-5ecc-a04f-4719b315124d"
-version = "0.1.0"
+version = "0.2.0"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -385,21 +247,21 @@ version = "0.1.1"
 
 [[deps.CSV]]
 deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
-git-tree-sha1 = "9519274b50500b8029973d241d32cfbf0b127d97"
+git-tree-sha1 = "873fb188a4b9d76549b81465b1f75c82aaf59238"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.2"
+version = "0.10.4"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "c9a6160317d1abe9c44b3beb367fd448117679ca"
+git-tree-sha1 = "9489214b993cd42d17f44c36e359bf6a7c919abf"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.13.0"
+version = "1.15.0"
 
 [[deps.ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
-git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
+git-tree-sha1 = "1e315e3f4b0b7ce40feded39c73049692126cf53"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
-version = "0.1.2"
+version = "0.1.3"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -409,9 +271,9 @@ version = "0.7.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "32a2b8af383f11cbb65803883837a149d10dfe8a"
+git-tree-sha1 = "eb7f0f8307f71fac7c606984ea5fb2817275d6e4"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.10.12"
+version = "0.11.4"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
@@ -421,9 +283,9 @@ version = "0.12.8"
 
 [[deps.Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "44c37b4636bc54afac5c574d2d02b625349d6582"
+git-tree-sha1 = "9be8be1d8a6f44b96482c8af52238ea7987da3e3"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.41.0"
+version = "3.45.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -453,26 +315,26 @@ version = "4.1.1"
 
 [[deps.DSP]]
 deps = ["Compat", "FFTW", "IterTools", "LinearAlgebra", "Polynomials", "Random", "Reexport", "SpecialFunctions", "Statistics"]
-git-tree-sha1 = "3e03979d16275ed5d9078d50327332c546e24e68"
+git-tree-sha1 = "3fb5d9183b38fdee997151f723da42fb83d1c6f2"
 uuid = "717857b8-e6f2-59f4-9121-6e50c889abd2"
-version = "0.7.5"
+version = "0.7.6"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "cc70b17275652eb47bc9e5f81635981f13cea5c8"
+git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "ae02104e835f219b8930c7664b8012c93475c340"
+git-tree-sha1 = "daa21eb85147f72e41f6352a57fccea377e310a9"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.3.2"
+version = "1.3.4"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "3daef5523dd2e769dad2365274f760ff5f282c7d"
+git-tree-sha1 = "d1fff3a548102f48987a52a2e0d114fa97d730f0"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.11"
+version = "0.18.13"
 
 [[deps.DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -503,8 +365,13 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+
+[[deps.ExternalDocstrings]]
+git-tree-sha1 = "1224740fc4d07c989949e1c1b508ebd49a65a5f6"
+uuid = "e189563c-0753-4f5e-ad5c-be4293c83fb4"
+version = "0.1.1"
 
 [[deps.FFTW]]
 deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
@@ -520,12 +387,9 @@ version = "3.3.10+0"
 
 [[deps.FilePathsBase]]
 deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
+git-tree-sha1 = "129b104185df66e408edd6625d480b7f9e9823a0"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.17"
-
-[[deps.FileWatching]]
-uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+version = "0.9.18"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -534,10 +398,10 @@ uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
 
 [[deps.Folds]]
-deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
-git-tree-sha1 = "8559de3011264727473c96e1f794f9ddcac2bb1c"
+deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "ExternalDocstrings", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
+git-tree-sha1 = "638109532de382a1f99b1aae1ca8b5d08515d85a"
 uuid = "41a02a25-b8f0-4f67-bc48-60067656b558"
-version = "0.2.7"
+version = "0.2.8"
 
 [[deps.Formatting]]
 deps = ["Printf"]
@@ -551,15 +415,15 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[deps.GraphPlot]]
 deps = ["ArnoldiMethod", "ColorTypes", "Colors", "Compose", "DelimitedFiles", "Graphs", "LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "5e51d9d9134ebcfc556b82428521fe92f709e512"
+git-tree-sha1 = "5cd479730a0cb01f880eff119e9803c13f214cab"
 uuid = "a2cc645c-3eea-5389-862e-a155d0052231"
-version = "0.5.0"
+version = "0.5.2"
 
 [[deps.Graphs]]
 deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "LinearAlgebra", "Random", "SharedArrays", "SimpleTraits", "SparseArrays", "Statistics"]
-git-tree-sha1 = "57c021de207e234108a6f1454003120a1bf350c4"
+git-tree-sha1 = "4888af84657011a65afc7a564918d281612f983a"
 uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
-version = "1.6.0"
+version = "1.7.0"
 
 [[deps.Hyperscript]]
 deps = ["Test"]
@@ -568,9 +432,10 @@ uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
 version = "0.0.4"
 
 [[deps.HypertextLiteral]]
-git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
+deps = ["Tricks"]
+git-tree-sha1 = "c47c5fa4c5308f27ccaac35504858d8914e102f9"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.3"
+version = "0.9.4"
 
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]
@@ -606,9 +471,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "91b5dcf362c5add98049e6c29ee756910b03051d"
+git-tree-sha1 = "b3364212fb5d870f724876ffcd34dd8ec6d98918"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.3"
+version = "0.1.7"
 
 [[deps.InvertedIndices]]
 git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
@@ -671,9 +536,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "58f25e56b706f95125dcb796f39e1fb01d913a71"
+git-tree-sha1 = "09e4b894ce6a976c354a69041a04748180d43637"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.10"
+version = "0.3.15"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -723,9 +588,9 @@ uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[deps.MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "ba8c0f8732a24facba709388c74ba99dcbfdda1e"
+git-tree-sha1 = "4e675d6e9ec02061800d6cfb695812becbd03cdf"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "1.0.0"
+version = "1.0.4"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -751,37 +616,37 @@ version = "1.4.1"
 
 [[deps.Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "13468f237353112a01b2d6b32f3d0f80219944aa"
+git-tree-sha1 = "0044b23da09b5608b4ecacb4e5e6c6332f833a7e"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.2.2"
+version = "2.3.2"
 
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[deps.PlutoUI]]
-deps = ["AbstractPlutoDingetjes", "Base64", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "5152abbdab6488d5eec6a01029ca6697dff4ec8f"
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
+git-tree-sha1 = "8d1f54886b9037091edf146b517989fc4a09efec"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.23"
+version = "0.7.39"
 
 [[deps.Polynomials]]
 deps = ["LinearAlgebra", "MutableArithmetics", "RecipesBase"]
-git-tree-sha1 = "0107e2f7f90cc7f756fee8a304987c574bbd7583"
+git-tree-sha1 = "a8d37fbaba422166e9f5354b6d8f6197e1f74fe5"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
-version = "3.0.0"
+version = "3.1.3"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
-git-tree-sha1 = "db3a23166af8aebf4db5ef87ac5b00d36eb771e2"
+git-tree-sha1 = "a6062fe4063cdafe78f4a0a81cfffb89721b30e7"
 uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
-version = "1.4.0"
+version = "1.4.2"
 
 [[deps.Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "d3538e7f8a790dc8903519090857ef8e1283eecd"
+git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.2.5"
+version = "1.3.0"
 
 [[deps.PrettyTables]]
 deps = ["Crayons", "Formatting", "Markdown", "Reexport", "Tables"]
@@ -828,9 +693,9 @@ uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[deps.SentinelArrays]]
 deps = ["Dates", "Random"]
-git-tree-sha1 = "6a2f7d70512d205ca8c7ee31bfa9f142fe74310c"
+git-tree-sha1 = "db8481cf5d6278a121184809e9eb1628943c7704"
 uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.3.12"
+version = "1.3.13"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -872,9 +737,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.SpecialFunctions]]
 deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "5ba658aeecaaf96923dce0da9e703bd1fe7666f9"
+git-tree-sha1 = "a9e798cae4867e3a41cae2dd9eb60c047f1212db"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.1.4"
+version = "2.1.6"
 
 [[deps.SplittablesBase]]
 deps = ["Setfield", "Test"]
@@ -884,9 +749,9 @@ version = "0.1.14"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "74fb527333e72ada2dd9ef77d98e4991fb185f04"
+git-tree-sha1 = "2bbd9f2e40afd197a1379aef05e0d85dba649951"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.1"
+version = "1.4.7"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -894,9 +759,9 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[deps.StatsAPI]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "c3d8ba7f3fa0625b062b82853a7d5229cb728b6b"
+git-tree-sha1 = "2c11d7290036fe7aac9038ff312d3b3a2a5bf89e"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.2.1"
+version = "1.4.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
@@ -915,10 +780,10 @@ uuid = "3783bdb8-4a98-5b6b-af9a-565f29a5fe9c"
 version = "1.0.1"
 
 [[deps.Tables]]
-deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
-git-tree-sha1 = "bb1064c9a84c52e277f1096cf41434b675cd368b"
+deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "TableTraits", "Test"]
+git-tree-sha1 = "5ce79ce186cc678bbb5c5681ca3379d1ddae11a1"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.6.1"
+version = "1.7.0"
 
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
@@ -942,9 +807,14 @@ version = "0.9.6"
 
 [[deps.Transducers]]
 deps = ["Adapt", "ArgCheck", "BangBang", "Baselet", "CompositionsBase", "DefineSingletons", "Distributed", "InitialValues", "Logging", "Markdown", "MicroCollections", "Requires", "Setfield", "SplittablesBase", "Tables"]
-git-tree-sha1 = "1cda71cc967e3ef78aa2593319f6c7379376f752"
+git-tree-sha1 = "c76399a3bbe6f5a88faa33c8f8a65aa631d95013"
 uuid = "28d57a85-8fef-5791-bfe6-a80928e7c999"
-version = "0.4.72"
+version = "0.4.73"
+
+[[deps.Tricks]]
+git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
+uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
+version = "0.1.6"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -955,9 +825,9 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[deps.WeakRefStrings]]
 deps = ["DataAPI", "InlineStrings", "Parsers"]
-git-tree-sha1 = "c69f9da3ff2f4f02e811c3323c22e5dfcb584cfa"
+git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
 uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
-version = "1.4.1"
+version = "1.4.2"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
@@ -983,27 +853,23 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 """
 
 # ╔═╡ Cell order:
-# ╠═4d1c9e56-9a19-11ec-176a-e17ab3202d23
-# ╠═d4732069-a523-467e-8970-e67e51b7fe57
-# ╠═102b3c2a-9506-4a59-8c8d-e38692e22742
-# ╟─2fb037ea-78c1-470c-8364-9a132825c126
-# ╟─3f4eb27b-8834-4997-8f8b-02d99250d2f8
-# ╠═90caa27d-7b90-47bc-b40d-fe3b01c3fb0e
-# ╠═144b12d8-31e9-41bc-a078-7151f0e47960
-# ╠═2b4fcb76-6de9-4f3f-9384-68d7ac8577b5
-# ╠═e388a5ae-d836-443c-b061-325647f305d3
-# ╠═09f8c5e3-aa88-45e5-9ef5-119d54cdc6c3
-# ╠═9050e59a-4720-45d2-92fb-b47fe4e825a9
-# ╟─0bbda310-2c0d-4f32-9ecc-762c37a91d46
-# ╟─a33cbac5-e324-4be4-a263-ceb39af987bd
-# ╠═88d479fa-1da6-404f-a2af-051cf23dc733
-# ╟─a5f00865-bc76-4f79-bf1f-43239c025304
-# ╟─31c046f1-5b2b-4963-99a5-6ab4924cc487
-# ╟─df1bab46-1112-498d-961d-da9b45aa0461
-# ╟─9f39ef1c-75ba-40b7-9d3e-7c704bfbabf1
-# ╟─c6f101a3-dee1-4cb9-85f8-24ff71a45efc
-# ╟─96e113c9-df9b-49a4-8382-487c6caa2bb2
-# ╟─4b3b4b0e-4678-401e-947a-0d60615d3677
-# ╠═9a8880c1-6058-48fc-b302-00ab1bdcd55d
+# ╠═36f0d630-e6f2-11ec-299e-231247a15e8f
+# ╠═053c343c-4918-4e6d-9d0a-3b6a1899183c
+# ╠═0d0bc6a7-869e-4e96-aa1b-1ecc691e5cc7
+# ╟─2cb1d11c-5ba0-4f2b-b06f-865658904a5f
+# ╠═5f22070f-c26a-49e5-aadf-e112c74d2766
+# ╠═9644b405-8a92-4944-a636-c11c788fc285
+# ╠═abceeb90-58b0-4841-ba05-0ce8608e25b9
+# ╠═c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
+# ╠═df9a3d7c-d414-434b-862b-8727d915f95d
+# ╠═d932cc30-26fc-4f49-b64d-a4209d5e9cd0
+# ╠═b886e54f-293e-4628-b17c-151e67ef609a
+# ╠═8a5630d8-b98a-49a8-84a5-763f8c104a0f
+# ╠═2df75dfd-19c5-4014-bffc-994c92ede223
+# ╠═c7f31065-d1dd-4cfd-be8c-283d8505f41b
+# ╠═66db8c94-16fa-488a-a18d-553e742f9507
+# ╠═c82f255a-c5e5-4495-9729-db1678a7aa1e
+# ╠═8219b7fd-22dd-499d-9ee5-8178b998fc1f
+# ╠═775fbdb6-fa43-4c57-b640-f654f5915f95
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

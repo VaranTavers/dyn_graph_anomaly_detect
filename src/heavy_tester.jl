@@ -46,9 +46,9 @@ end
 
 # ╔═╡ 0d0bc6a7-869e-4e96-aa1b-1ecc691e5cc7
 begin
-	implementation_jl = ingredients("./implementation_aco.jl")
+	implementation_jl = ingredients("./ACO/implementation_aco.jl")
 	import .implementation_jl: ACOSettings
-	implementation_k_heavy_jl = ingredients("./implementation_k_heavy.jl")
+	implementation_k_heavy_jl = ingredients("./ACO/implementation_k_heavy.jl")
 	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community, calculate_heaviness, HeaviestACOK_get_pheromone
 end
 
