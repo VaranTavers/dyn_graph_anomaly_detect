@@ -68,6 +68,7 @@ end
 begin
 	paths_zip = zip(df[!, "Folder"], df[!, "Filename"])
 	paths = map(((a,b),) -> "$a/$b", paths_zip)
+	
 	g_s = map(name -> loadgraph("../graphs/dense/$name", SWGFormat()), paths)
 end
 
@@ -81,7 +82,7 @@ end
 function good(result, real)
 	prec = result / real
 	
-	(prec, floor(real)) 
+	(prec, floor(prec)) 
 end
 
 # ╔═╡ b886e54f-293e-4628-b17c-151e67ef609a
@@ -96,10 +97,10 @@ for (i, g) in enumerate(g_s)
 	vars = ACOSettings(
 		1, # α
 		2, # β
-		a, # number_of_ants
+		60, # number_of_ants
 		0.8, # ρ
 		0.005, # ϵ
-		i, # max_number_of_iterations
+		150, # max_number_of_iterations
 		300 # starting_pheromone_ammount
 	)
 	vars3 = ACOKSettings(
@@ -110,10 +111,11 @@ for (i, g) in enumerate(g_s)
 
 	for j in 1:number_of_tests
 		k_sub_g = DensestACOK(g, vars3)
-		goods = good(calculate_denseness(k_sub_g), df[i, "Best"])
 		
-		precision[i, j] = fst.(goods)
-		is_good[i, j] = snd.(goods)
+		goods = good(calculate_denseness(g, k_sub_g), df[i, "Best"])
+
+		precision[i, j] = fst(goods)
+		is_good[i, j] = snd(goods)
 	end
 end
 
@@ -141,7 +143,10 @@ end
 save_result_and_stats("../graphs/dense_is_good.csv", is_good)
 
 # ╔═╡ 4abf838f-44cb-4fcf-89b1-762fa15f39b9
-save_result_and_stats("../graphs/dense_prec.csv", is_good)
+save_result_and_stats("../graphs/dense_prec.csv", precision)
+
+# ╔═╡ 7e9a4b6e-8d1f-485f-9ab3-a5f9ce784105
+df[1, "Best"]
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -175,7 +180,7 @@ StatsBase = "~0.33.16"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -353,7 +358,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.ExternalDocstrings]]
@@ -378,9 +383,6 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "129b104185df66e408edd6625d480b7f9e9823a0"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.18"
-
-[[deps.FileWatching]]
-uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -859,5 +861,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═66c2ebb3-81a4-4001-bed3-9b905cff31f7
 # ╠═42372009-dd56-4e0c-8617-5ca0d299c98b
 # ╠═4abf838f-44cb-4fcf-89b1-762fa15f39b9
+# ╠═7e9a4b6e-8d1f-485f-9ab3-a5f9ce784105
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

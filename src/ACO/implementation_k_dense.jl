@@ -155,7 +155,7 @@ function calculate_η(graph)
 end
 
 # ╔═╡ b48ba4f0-f409-43c2-bde2-cb90acd5085d
-function calculate_denseness(graph, c)
+function calculate_denseness(_g, c)
 	length(c)
 end
 
@@ -300,27 +300,6 @@ function solution_to_community(graph, solution)
 
 	[ findfirst(x->x==i, f) != nothing ? 1 : 0 for i in 1:n]
 end
-
-# ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
-begin
-	g = loadgraph("graphs/k-cluster_40/kcluster40_025_10_1.dat", SWGFormat())
-	
-	vars = ACOSettings(
-			1.5, # α
-			2, # β
-			60, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			150, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = DensestACOK(g, ACOKSettings(vars, 10, false))
-	calculate_denseness(g, c)
-	
-end
-
-# ╔═╡ 83ec8e2b-3f89-46f1-b70e-b53c51496364
-solution_to_community(g, c)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -816,7 +795,5 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═29da4832-6d05-4dfa-8be9-0dd01893ede1
 # ╠═72a81225-6ecd-4ae6-b668-1ad4af0d6b7c
 # ╠═7e37429c-521d-4d6a-bebd-475cb9573803
-# ╠═e8f705bb-be85-48aa-a25e-0f9e2921f6a3
-# ╠═83ec8e2b-3f89-46f1-b70e-b53c51496364
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
