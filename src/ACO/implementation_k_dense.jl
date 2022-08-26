@@ -212,7 +212,7 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 			end
 			# Update pheromone trails
 			# TODO: test with matrix sum
-			τ .*= vars.acos.ρ
+			τ .*= (1 - vars.acos.ρ)
 			for (a, b) in zip(sib, sib[2:end])
 				τ[a, b] += sib_val
 				τ[b, a] += sib_val
