@@ -349,24 +349,24 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("../../graphs/heavy/changhonghao.lgz", SWGFormat())
+	# g = loadgraph("../../graphs/heavy/changhonghao.lgz", SWGFormat())
 	
-	vars = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = HeaviestACOK(g, ACOKSettings(vars, 12, false, 20))
-	calculate_heaviness(g, c)
+	# vars = ACOSettings(
+	#		1, # α
+	#		2, # β
+	#		30, # number_of_ants
+	#		0.8, # ρ
+	#		0.005, # ϵ
+	#		100, # max_number_of_iterations
+	#		3 # starting_pheromone_ammount
+	#	)
+	#c = HeaviestACOK(g, ACOKSettings(vars, 12, false, 20))
+	#calculate_heaviness(g, c)
 	
 end
 
 # ╔═╡ 83ec8e2b-3f89-46f1-b70e-b53c51496364
-solution_to_community(g, c)
+# solution_to_community(g, c)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
