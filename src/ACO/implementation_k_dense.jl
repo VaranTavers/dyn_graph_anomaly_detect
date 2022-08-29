@@ -59,33 +59,25 @@ md"""
 ## Solution generator functions
 """
 
-# ╔═╡ 0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
-# Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities_old(inner::ACOInner, i, vars::ACOSettings, c)
-	graph, n, η, τ = spread(inner)
-
-	# graph.weights[i,j] * 
-	p = [ findfirst(x -> x == j, c) == nothing ? (τ[i, j]^vars.α * η[i, j]^vars.β) : 0 for j in 1:n]
-	if maximum(p) == 0
-		p[i] = 1
-	end
-	s_p = sum(p)
-
-	p ./= s_p
-
-	p
-end
-
 # ╔═╡ e2523de6-262d-47ee-8168-6cd7b2aab6b7
 # Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
+function calculate_probabilities(inner::ACOInner, s_n, solution, vars::ACOSettings)
 	graph, n, η, τ = spread(inner)
 
+	η_base = zeros(n)
+	for k in 1:s_n
+		η_base += η[solution[k], :]
+		η_base[k] = -10000
+	end
+
+	η_base[η_base .< 0] .= 0
+	η_base ./= n
+	
 	# graph.weights[i,j] * 
-	p = [ (τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
+	p = [ (τ[solution[s_n], j]^vars.α * η_base[j]^vars.β) for j in 1:n]
 
 	if maximum(p) == 0
-		p[i] = 1
+		p[solution[s_n]] = 1
 	end
 	s_p = sum(p)
 
@@ -100,7 +92,7 @@ function generate_s(inner::ACOInner, vars::ACOKSettings, i)
 	points = zeros(Int64, vars.k)
 	points[1] = i
 	for i in 2:vars.k
-		points[i] = sample(calculate_probabilities_old(inner, points[i - 1], vars.acos, points))
+		points[i] = sample(calculate_probabilities(inner, i - 1, points, vars.acos))
 		if points[i] == points[i - 1]
 			if vars.force_every_solution
 				return generate_s(inner, vars)
@@ -138,7 +130,7 @@ function calculate_η_ij(graph, i, j, m)
 		return 0;
 	end
 	
-	count(graph.weights[:, j] .> 0 .&& graph.weights[:, i] .> 0) / nv(graph) + count(graph.weights[:, j] .> 0 .&& graph.weights[:, i] .== 0) / nv(graph) / 4
+	1
 end
 
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
@@ -777,7 +769,6 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═8fa16cd8-1735-4200-9ad0-4cdbe3e71c91
 # ╠═c9d3fbd8-773f-43ab-bd54-d36c2d16a525
 # ╟─8dd697a4-a690-4a99-95b5-8410756d4ba4
-# ╠═0fe2aa25-71b5-41e1-bdd7-3d74cd2c7afe
 # ╠═e2523de6-262d-47ee-8168-6cd7b2aab6b7
 # ╠═7e986200-7274-4be5-9b18-3a0b84b570af
 # ╠═6da30365-bb02-47fc-a812-b1f3571a909e
