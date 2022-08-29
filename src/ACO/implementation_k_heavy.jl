@@ -257,7 +257,7 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 			end
 			# Update pheromone trails
 			# TODO: test with matrix sum
-			τ .*= vars.acos.ρ
+			τ .*= (1 - vars.acos.ρ)
 			for (a, b) in zip(sib, sib[2:end])
 				τ[a, b] += sib_val
 				τ[b, a] += sib_val
@@ -349,24 +349,24 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("../../graphs/heavy/changhonghao.lgz", SWGFormat())
+	# g = loadgraph("../../graphs/heavy/changhonghao.lgz", SWGFormat())
 	
-	vars = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = HeaviestACOK(g, ACOKSettings(vars, 12, false, 20))
-	calculate_heaviness(g, c)
+	# vars = ACOSettings(
+	#		1, # α
+	#		2, # β
+	#		30, # number_of_ants
+	#		0.8, # ρ
+	#		0.005, # ϵ
+	#		100, # max_number_of_iterations
+	#		3 # starting_pheromone_ammount
+	#	)
+	#c = HeaviestACOK(g, ACOKSettings(vars, 12, false, 20))
+	#calculate_heaviness(g, c)
 	
 end
 
 # ╔═╡ 83ec8e2b-3f89-46f1-b70e-b53c51496364
-solution_to_community(g, c)
+# solution_to_community(g, c)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -390,7 +390,7 @@ SimpleWeightedGraphs = "~1.2.1"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.7.3"
 manifest_format = "2.0"
 
 [[deps.Accessors]]
@@ -514,7 +514,7 @@ deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.FilePathsBase]]
@@ -522,6 +522,9 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.Folds]]
 deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
