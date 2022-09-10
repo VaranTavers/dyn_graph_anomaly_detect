@@ -46,8 +46,6 @@ end
 
 # ╔═╡ 0d0bc6a7-869e-4e96-aa1b-1ecc691e5cc7
 begin
-	implementation_k_heavy_jl = ingredients("./ACO/implementation_k_heavy.jl")
-	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community, calculate_heaviness, HeaviestACOK_get_pheromone
 	implementation_com_jl = ingredients("./ACO/implementation_community.jl")
 	import .implementation_com_jl: CommunityACO, ACOSettings, normalized_mutual_information
 end
@@ -56,33 +54,54 @@ end
 md"""
 Input name: $(@bind name TextField())
 
-Input name2: $(@bind name2 TextField())
-
 Communities: $(@bind name_com TextField())
 
 Number of tests: $(@bind number_of_tests NumberField(0:100, default=20))
+"""
 
-K: $(@bind k NumberField(1:100, default=25))
+# ╔═╡ a2768180-4bfe-40ba-a743-00528d36c6c6
+md"""
+## α
+
+Min: $(@bind α_min Scrubbable(0.1:0.1:5, default=0.5))
+Step: $(@bind α_step Scrubbable(0:0.1:5, default=0.5))
+Max: $(@bind α_max Scrubbable(0.1:0.1:5, default=2))
+
+## β
+
+Min: $(@bind β_min Scrubbable(0.1:0.1:5, default=0.5))
+Step: $(@bind β_step Scrubbable(0:0.1:5, default=0.5))
+Max: $(@bind β_max Scrubbable(0.1:0.1:5, default=2))
+
+## ρ
+
+Min: $(@bind ρ_min Scrubbable(0.1:0.1:5, default=0.1))
+Step (/10): $(@bind ρ_step Scrubbable(0:0.1:50, default=0.1))
+Max: $(@bind ρ_max Scrubbable(0.1:0.1:5, default=0.9))
+
 """
 
 # ╔═╡ 5f22070f-c26a-49e5-aadf-e112c74d2766
 begin
 	g = loadgraph("../graphs/$name", SWGFormat())
-	g2 = loadgraph("../graphs/$name2", SWGFormat())
 	gplot(g, nodelabel=1:nv(g))
 end
 
-# ╔═╡ 9644b405-8a92-4944-a636-c11c788fc285
-gplot(g2, nodelabel=1:nv(g2))
-
-# ╔═╡ abceeb90-58b0-4841-ba05-0ce8608e25b9
+# ╔═╡ ab0b3436-3cc8-4ad6-9467-43b9fb61f996
 real = CSV.read("../graphs/$name_com", DataFrame, header=false)[!, "Column1"]
 
 # ╔═╡ c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
 begin
-	α_vec = [1.5]
-	β_vec = collect(0.1:0.1:1)
-	#ρ_vec = collect(0.1:0.1:1)
+	α_s = α_min:α_step:α_max
+	β_s = β_min:β_step:β_max
+	ρ_s = ρ_min:ρ_step/10:ρ_max
+
+	α_l = length(collect(α_s))
+	β_l = length(collect(β_s))
+	ρ_l = length(collect(ρ_s))
+
+	variations = [(α, β, ρ) for α in α_s, β in β_s, ρ in ρ_s][:]
+	length(variations)
 end
 
 # ╔═╡ df9a3d7c-d414-434b-862b-8727d915f95d
@@ -92,68 +111,92 @@ begin
 end
 
 # ╔═╡ d932cc30-26fc-4f49-b64d-a4209d5e9cd0
-function good(c1)
-	ck = [ i <= k ? 1 : 0 for i in 1:length(c1)]
+function good(x)
 
-	res = 1 - count((c1 .== 1) .⊻ (ck .== 1)) / length(c1)
+	res = normalized_mutual_information(real, x)
 
 	(res, floor(res))
 end
 
-# ╔═╡ b886e54f-293e-4628-b17c-151e67ef609a
-begin
-	results_com = [[] for _ in 1:length(α_vec), _ in 1:length(β_vec)]
-	results_k_heavy = [[] for _ in 1:length(α_vec), _ in 1:length(β_vec)]
+# ╔═╡ 0205bfb1-fcab-413e-a77a-45f06b6b6e4a
+function test_with_params((α, β, ρ))
+	vars = ACOSettings(
+		α,
+		β,
+		60, # number_of_ants
+		ρ,
+		0.005, # ϵ
+		200, # max_number_of_iterations
+		300 # starting_pheromone_ammount
+	)
+	
+	k_sub_g = Folds.map(_ -> CommunityACO(g, vars), 1:number_of_tests)
+
+	io = open("../graphs/done/$(α)_$(β)_$(ρ).txt", "w")
+	println(io, "->>> Test done with ($(α),$(β), $(ρ))")
+	close(io)
+	
+	goods = Folds.map(good, k_sub_g)
+	
+	(fst.(goods), snd.(goods))
 end
 
-# ╔═╡ 8a5630d8-b98a-49a8-84a5-763f8c104a0f
-for (j, α) in enumerate(α_vec)
-	for (k, β) in enumerate(β_vec)
-		vars = ACOSettings(
-			α,
-			2.0,
-			60, # number_of_ants
-			β,
-			0.005, # ϵ
-			150, # max_number_of_iterations
-			150 # starting_pheromone_ammount
-		)
-		vars3 = ACOKSettings(
-			vars,
-			k,
-			false,
-			Integer(ceil(k*2))
-		)
-	
-		com_sub_g =  Folds.map(_ -> CommunityACO(g2, vars), 1:number_of_tests)
-		c_goods = Folds.map(x -> normalized_mutual_information(real, x), com_sub_g)
-		
-		
-		k_sub_g = Folds.map(_ -> HeaviestACOK(g, vars3), 1:number_of_tests)
-		k_goods = Folds.map(x -> good(solution_to_community(g, x)), k_sub_g)
+# ╔═╡ df1618d0-5507-4050-bf96-980694922c26
+md"""
+Run:
+$(@bind run CheckBox())
 
-		append!(results_com[j, k], c_goods)
-		append!(results_k_heavy[j, k], k_goods)
+"""
+
+# ╔═╡ 45a58d7f-2de4-4bd6-85d3-1892577624e4
+begin
+	if run
+		@show "This cell ran"
 	end
 end
 
-# ╔═╡ 2df75dfd-19c5-4014-bffc-994c92ede223
-mean_com = map(mean, results_com)[:]
+# ╔═╡ 8a5630d8-b98a-49a8-84a5-763f8c104a0f
+begin
 
-# ╔═╡ c7f31065-d1dd-4cfd-be8c-283d8505f41b
-σ_com = map(std, results_com)[:]
+	if run
+		results = Folds.map(test_with_params, variations)
+	end
 
-# ╔═╡ 66db8c94-16fa-488a-a18d-553e742f9507
-max_com = map(maximum, results_com)[:]
+end
 
-# ╔═╡ c82f255a-c5e5-4495-9729-db1678a7aa1e
-mean_k = map(x -> mean(fst.(x)), results_k_heavy)[:]
+# ╔═╡ 2b785ab7-02d7-410b-aec2-46f38e38b24b
+begin
+	is_good = snd.(results)
+	precision = fst.(results)
+end
 
-# ╔═╡ 8219b7fd-22dd-499d-9ee5-8178b998fc1f
-σ_k = map(x -> std(fst.(x)), results_k_heavy)[:]
+# ╔═╡ 28884c26-bbff-412b-9c46-e147d04a53de
+function save_result_and_stats(filename, rows, variations)
+	means = map(mean, rows)
+	stds = map(std, rows)
+	mins = map(minimum, rows)
+	maxs = map(maximum, rows)
 
-# ╔═╡ 775fbdb6-fa43-4c57-b640-f654f5915f95
-max_k = map(x -> maximum(fst.(x)), results_k_heavy)[:]
+	mat = mapreduce(permutedims, vcat, rows)
+	mat_res = hcat(variations, mat, means, stds, mins, maxs)
+	
+	CSV.write(filename, Tables.table(mat_res), writeheader = false)
+end
+
+# ╔═╡ 92c6c19c-3192-4483-b742-04349defb3f3
+begin
+	if run
+		save_result_and_stats("../graphs/community_is_good.csv", is_good, variations)
+	end
+end
+
+# ╔═╡ dd27b8b0-4927-4134-89cd-3e4877bc5416
+begin
+
+	if run
+		save_result_and_stats("../graphs/community_prec.csv", precision, variations)
+	end
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -271,9 +314,9 @@ version = "0.7.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "eb7f0f8307f71fac7c606984ea5fb2817275d6e4"
+git-tree-sha1 = "0f4e115f6f34bbe43c19751c90a38b2f380637b9"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.11.4"
+version = "0.11.3"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
@@ -471,9 +514,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "b3364212fb5d870f724876ffcd34dd8ec6d98918"
+git-tree-sha1 = "c6cf981474e7094ce044168d329274d797843467"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.7"
+version = "0.1.6"
 
 [[deps.InvertedIndices]]
 git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
@@ -588,9 +631,9 @@ uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[deps.MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "4e675d6e9ec02061800d6cfb695812becbd03cdf"
+git-tree-sha1 = "3f419c608647de2afb8c05a1b1911f45b35418e2"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "1.0.4"
+version = "1.0.3"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -616,9 +659,9 @@ version = "1.4.1"
 
 [[deps.Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "0044b23da09b5608b4ecacb4e5e6c6332f833a7e"
+git-tree-sha1 = "1285416549ccfcdf0c50d4997a94331e88d68413"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.3.2"
+version = "2.3.1"
 
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
@@ -749,9 +792,9 @@ version = "0.1.14"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "2bbd9f2e40afd197a1379aef05e0d85dba649951"
+git-tree-sha1 = "383a578bdf6e6721f480e749d503ebc8405a0b22"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.7"
+version = "1.4.6"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -856,20 +899,20 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═36f0d630-e6f2-11ec-299e-231247a15e8f
 # ╠═053c343c-4918-4e6d-9d0a-3b6a1899183c
 # ╠═0d0bc6a7-869e-4e96-aa1b-1ecc691e5cc7
-# ╠═2cb1d11c-5ba0-4f2b-b06f-865658904a5f
+# ╟─2cb1d11c-5ba0-4f2b-b06f-865658904a5f
+# ╠═a2768180-4bfe-40ba-a743-00528d36c6c6
 # ╠═5f22070f-c26a-49e5-aadf-e112c74d2766
-# ╠═9644b405-8a92-4944-a636-c11c788fc285
-# ╠═abceeb90-58b0-4841-ba05-0ce8608e25b9
+# ╠═ab0b3436-3cc8-4ad6-9467-43b9fb61f996
 # ╠═c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
 # ╠═df9a3d7c-d414-434b-862b-8727d915f95d
 # ╠═d932cc30-26fc-4f49-b64d-a4209d5e9cd0
-# ╠═b886e54f-293e-4628-b17c-151e67ef609a
+# ╠═0205bfb1-fcab-413e-a77a-45f06b6b6e4a
+# ╟─df1618d0-5507-4050-bf96-980694922c26
+# ╠═45a58d7f-2de4-4bd6-85d3-1892577624e4
 # ╠═8a5630d8-b98a-49a8-84a5-763f8c104a0f
-# ╠═2df75dfd-19c5-4014-bffc-994c92ede223
-# ╠═c7f31065-d1dd-4cfd-be8c-283d8505f41b
-# ╠═66db8c94-16fa-488a-a18d-553e742f9507
-# ╠═c82f255a-c5e5-4495-9729-db1678a7aa1e
-# ╠═8219b7fd-22dd-499d-9ee5-8178b998fc1f
-# ╠═775fbdb6-fa43-4c57-b640-f654f5915f95
+# ╠═2b785ab7-02d7-410b-aec2-46f38e38b24b
+# ╠═28884c26-bbff-412b-9c46-e147d04a53de
+# ╠═92c6c19c-3192-4483-b742-04349defb3f3
+# ╠═dd27b8b0-4927-4134-89cd-3e4877bc5416
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

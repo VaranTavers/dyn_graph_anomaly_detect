@@ -263,51 +263,51 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("../../graphs/changhonghao2013 (copy).lgz", SWGFormat())
+	# g = loadgraph("../../graphs/changhonghao2013 (copy).lgz", SWGFormat())
 	
-	vars = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = CommunityACO(g, vars)
-	c
-	calculate_modularity(g, c)
+	# vars = ACOSettings(
+	# 		1, # α
+	# 		2, # β
+	# 		30, # number_of_ants
+	# 		0.8, # ρ
+	# 		0.005, # ϵ
+	# 		100, # max_number_of_iterations
+	# 		3 # starting_pheromone_ammount
+	# 	)
+	# c = CommunityACO(g, vars)
+	# c
+	# calculate_modularity(g, c)
 	
 end
 
 # ╔═╡ 18788290-bc3a-4ef9-ae9b-9034957228f5
 begin
-	g2 = loadgraph("../../graphs/LFR/network6.lgz", SWGFormat())
+	# g2 = loadgraph("../../graphs/LFR/network6.lgz", SWGFormat())
 	
-	vars2 = ACOSettings(
-			1, # α
-			2, # β
-			30, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			100, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c2, phe = CommunityACO_get_pheromone(g2, vars2)
-	c2
-	calculate_modularity(g2, c2)
+	# vars2 = ACOSettings(
+	#		1, # α
+	#		2, # β
+	#		30, # number_of_ants
+	#		0.8, # ρ
+	#		0.005, # ϵ
+	#		100, # max_number_of_iterations
+	#		3 # starting_pheromone_ammount
+	#	)
+	# c2, phe = CommunityACO_get_pheromone(g2, vars2)
+	# c2
+	# calculate_modularity(g2, c2)
 	
 end
 
 # ╔═╡ 750d6c6d-9760-4914-b22a-a841b994ca4a
-phe[7, :]
+# phe[7, :]
 
 # ╔═╡ 5a70e933-f62e-4008-a683-a36e58b7da6b
 begin
-	g3 = loadgraph("../../graphs/dynamic_graphs/syntetic/school_test/school_test52.lgz", SWGFormat())
+	# g3 = loadgraph("../../graphs/dynamic_graphs/syntetic/school_test/school_test52.lgz", SWGFormat())
 	
-	@time c3 = CommunityACO(g3, vars2)
-	calculate_modularity(g3, c3)
+	# @time c3 = CommunityACO(g3, vars2)
+	# calculate_modularity(g3, c3)
 	
 end
 
@@ -333,7 +333,7 @@ SimpleWeightedGraphs = "~1.2.1"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.Accessors]]
@@ -457,7 +457,7 @@ deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.FilePathsBase]]
@@ -465,9 +465,6 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.17"
-
-[[deps.FileWatching]]
-uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.Folds]]
 deps = ["Accessors", "BangBang", "Baselet", "DefineSingletons", "Distributed", "InitialValues", "MicroCollections", "Referenceables", "Requires", "Test", "ThreadedScans", "Transducers"]
