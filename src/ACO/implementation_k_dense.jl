@@ -83,7 +83,7 @@ function generate_s(inner::ACOInner, vars::ACOKSettings, i)
 	points = zeros(Int64, vars.k)
 	points[1] = i
 	for i in 2:vars.k
-		points[i] = sample(calculate_probabilities(inner, i - 1, points, vars.acos))
+		points[i] = sample(calculate_probabilities(inner, points[i - 1], vars.acos))
 		if points[i] == points[i - 1]
 			if vars.force_every_solution
 				return generate_s(inner, vars)
