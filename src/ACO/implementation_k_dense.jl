@@ -61,23 +61,14 @@ md"""
 
 # ╔═╡ e2523de6-262d-47ee-8168-6cd7b2aab6b7
 # Calculates the probabilities of choosing edges to add to the solution.
-function calculate_probabilities(inner::ACOInner, s_n, solution, vars::ACOSettings)
+function calculate_probabilities(inner::ACOInner, i, vars::ACOSettings)
 	graph, n, η, τ = spread(inner)
 
-	η_base = zeros(n)
-	for k in 1:s_n
-		η_base += η[solution[k], :]
-		η_base[k] = -10000
-	end
-
-	η_base[η_base .< 0] .= 0
-	η_base ./= n
-	
 	# graph.weights[i,j] * 
-	p = [ (τ[solution[s_n], j]^vars.α * η_base[j]^vars.β) for j in 1:n]
+	p = [ (τ[i, j]^vars.α * η[i, j]^vars.β) for j in 1:n]
 
 	if maximum(p) == 0
-		p[solution[s_n]] = 1
+		p[i] = 1
 	end
 	s_p = sum(p)
 
@@ -130,7 +121,7 @@ function calculate_η_ij(graph, i, j, m)
 		return 0;
 	end
 	
-	1
+	count(graph.weights[:, j] .> 0 .&& graph.weights[:, i] .> 0) / nv(graph) + count(graph.weights[:, j] .> 0 .&& graph.weights[:, i] .== 0) / nv(graph) / 4
 end
 
 # ╔═╡ a854518f-2b68-402c-a754-c20000504f0a
