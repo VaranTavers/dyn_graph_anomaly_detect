@@ -78,7 +78,7 @@ Max: $(@bind β_max Scrubbable(0.1:0.1:5, default=2))
 ## ρ
 
 Min: $(@bind ρ_min Scrubbable(0.1:0.1:5, default=0.1))
-Step (/10): $(@bind ρ_step Scrubbable(0:0.1:10, default=0.05))
+Step (/10): $(@bind ρ_step Scrubbable(0:0.1:50, default=0.1))
 Max: $(@bind ρ_max Scrubbable(0.1:0.1:5, default=0.9))
 
 """
@@ -93,7 +93,7 @@ end
 begin
 	α_s = α_min:α_step:α_max
 	β_s = β_min:β_step:β_max
-	ρ_s = ρ_min:ρ_step:ρ_max
+	ρ_s = ρ_min:ρ_step/10:ρ_max
 
 	α_l = length(collect(α_s))
 	β_l = length(collect(β_s))
@@ -220,7 +220,7 @@ StatsBase = "~0.33.16"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.7.2"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -398,7 +398,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.ExternalDocstrings]]
@@ -423,9 +423,6 @@ deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
 git-tree-sha1 = "129b104185df66e408edd6625d480b7f9e9823a0"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
 version = "0.9.18"
-
-[[deps.FileWatching]]
-uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]

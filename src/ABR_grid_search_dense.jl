@@ -48,8 +48,8 @@ end
 begin
 	implementation_jl = ingredients("./ACO/implementation_aco.jl")
 	import .implementation_jl: ACOSettings
-	implementation_k_heavy_jl = ingredients("./ACO/implementation_k_heavy.jl")
-	import .implementation_k_heavy_jl: ACOKSettings, HeaviestACOK, solution_to_community, calculate_heaviness, HeaviestACOK_get_pheromone
+	implementation_k_dense_jl = ingredients("./ACO/implementation_k_dense.jl")
+	import .implementation_k_dense_jl: ACOKSettings, DensestACOK, calculate_denseness, DensestACOK_get_pheromone
 end
 
 # ╔═╡ 2cb1d11c-5ba0-4f2b-b06f-865658904a5f
@@ -59,19 +59,29 @@ Input name: $(@bind name TextField())
 Number of tests: $(@bind number_of_tests NumberField(0:100, default=20))
 
 K: $(@bind k NumberField(1:100, default=25))
+
+Real: $(@bind real NumberField(1:50000, default=25))
 """
 
 # ╔═╡ a2768180-4bfe-40ba-a743-00528d36c6c6
 md"""
-Ants / Iterations (X): $(@bind chk_iterations CheckBox())
+## α
 
-Min: $(@bind chk_min NumberField(0:100, default=30))
+Min: $(@bind α_min Scrubbable(0.1:0.1:5, default=0.5))
+Step: $(@bind α_step Scrubbable(0:0.1:5, default=0.5))
+Max: $(@bind α_max Scrubbable(0.1:0.1:5, default=2))
 
-Step: $(@bind chk_step NumberField(0:10, default=1))
+## β
 
-Max: $(@bind chk_max NumberField(0:100, default=40))
+Min: $(@bind β_min Scrubbable(0.1:0.1:5, default=0.5))
+Step: $(@bind β_step Scrubbable(0:0.1:5, default=0.5))
+Max: $(@bind β_max Scrubbable(0.1:0.1:5, default=2))
 
-Default other: $(@bind chk_other NumberField(0:100, default=100))
+## ρ
+
+Min: $(@bind ρ_min Scrubbable(0.1:0.1:5, default=0.1))
+Step (/10): $(@bind ρ_step Scrubbable(0:0.1:50, default=0.1))
+Max: $(@bind ρ_max Scrubbable(0.1:0.1:5, default=0.9))
 
 """
 
@@ -82,17 +92,14 @@ begin
 end
 
 # ╔═╡ c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
-if chk_iterations
-	number_of_ants = [chk_other for _ in chk_min:chk_step:chk_max]
-else
-	number_of_ants = collect(chk_min:chk_step:chk_max)
-end
+begin
+	α_s = α_min:α_step:α_max
+	β_s = β_min:β_step:β_max
+	ρ_s = ρ_min:ρ_step/10:ρ_max
 
-# ╔═╡ 7dfbaaa5-d215-4bc8-b885-ed9ee01834c9
-if chk_iterations
-	number_of_iterations = collect(chk_min:chk_step:chk_max)
-else
-	number_of_iterations = [chk_other for _ in chk_min:chk_step:chk_max]
+	α_l = length(collect(α_s))
+	β_l = length(collect(β_s))
+	ρ_l = length(collect(ρ_s))
 end
 
 # ╔═╡ df9a3d7c-d414-434b-862b-8727d915f95d
@@ -102,51 +109,81 @@ begin
 end
 
 # ╔═╡ d932cc30-26fc-4f49-b64d-a4209d5e9cd0
-function good(c1)
-	ck = [ i <= k ? 1 : 0 for i in 1:length(c1)]
-
-	res = 1 - count((c1 .== 1) .⊻ (ck .== 1)) / length(c1)
-
-	(res, floor(res))
+function good(result)
+	prec = result / real
+	
+	(prec, floor(prec)) 
 end
 
-# ╔═╡ b886e54f-293e-4628-b17c-151e67ef609a
+# ╔═╡ 0e86d796-7f8a-4b9d-a0ca-3917f60d7d96
 begin
-	is_good = [0.0 for _ in chk_min:chk_step:chk_max]
-	precision = [0.0 for _ in chk_min:chk_step:chk_max]
+	variations = [(α, β, ρ) for α in α_s, β in β_s, ρ in ρ_s][:]
+	length(variations)
 end
 
-# ╔═╡ 8a5630d8-b98a-49a8-84a5-763f8c104a0f
-for (j, (a, i)) in enumerate(zip(number_of_ants, number_of_iterations))
+# ╔═╡ 0205bfb1-fcab-413e-a77a-45f06b6b6e4a
+function test_with_params((α, β, ρ))
 	vars = ACOSettings(
-		1, # α
-		2, # β
-		a, # number_of_ants
-		0.8, # ρ
+		α,
+		β,
+		60, # number_of_ants
+		ρ,
 		0.005, # ϵ
-		i, # max_number_of_iterations
+		300, # max_number_of_iterations
 		300 # starting_pheromone_ammount
 	)
 	vars3 = ACOKSettings(
 		vars,
 		k,
-		false,
-		Integer(ceil(k*3))
+		false
 	)
 	
-	k_sub_g = Folds.map(_ -> HeaviestACOK(g, vars3), 1:number_of_tests)
-	goods = Folds.map(x -> good(solution_to_community(g, x)), k_sub_g)
-	#@show Folds.map(x -> solution_to_community(g, x), k_sub_g)
-	#@show calculate_heaviness(g, k_sub_g[1])
-	precision[j] = sum(fst.(goods)) / number_of_tests
-	is_good[j] = sum(snd.(goods)) / number_of_tests
+	k_sub_g = Folds.map(_ -> DensestACOK(g, vars3), 1:number_of_tests)
+	goods = Folds.map(x -> good(calculate_denseness(g, x)), k_sub_g)
+	
+	(fst.(goods), snd.(goods))
 end
 
-# ╔═╡ fcbf574c-9631-4b61-91b6-31b573d381a5
-is_good
+# ╔═╡ df1618d0-5507-4050-bf96-980694922c26
+md"""
+Run:
+$(@bind run CheckBox())
 
-# ╔═╡ 09af520d-83ed-4538-aee5-16b0263b6b7b
-precision
+"""
+
+# ╔═╡ 8a5630d8-b98a-49a8-84a5-763f8c104a0f
+begin
+
+	if run
+		results = Folds.map(test_with_params, variations)
+	end
+
+end
+
+# ╔═╡ 2b785ab7-02d7-410b-aec2-46f38e38b24b
+begin
+	is_good = fst.(results)
+	precision = snd.(results)
+end
+
+# ╔═╡ 28884c26-bbff-412b-9c46-e147d04a53de
+function save_result_and_stats(filename, rows, variations)
+	means = map(mean, rows)
+	stds = map(std, rows)
+	mins = map(minimum, rows)
+	maxs = map(maximum, rows)
+
+	mat = mapreduce(permutedims, vcat, rows)
+	mat_res = hcat(variations, mat, means, stds, mins, maxs)
+	
+	CSV.write(filename, Tables.table(mat_res), writeheader = false)
+end
+
+# ╔═╡ 92c6c19c-3192-4483-b742-04349defb3f3
+save_result_and_stats("../graphs/heavy_is_good.csv", is_good, variations)
+
+# ╔═╡ dd27b8b0-4927-4134-89cd-3e4877bc5416
+save_result_and_stats("../graphs/heavy_prec.csv", precision, variations)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -850,15 +887,18 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═053c343c-4918-4e6d-9d0a-3b6a1899183c
 # ╠═0d0bc6a7-869e-4e96-aa1b-1ecc691e5cc7
 # ╟─2cb1d11c-5ba0-4f2b-b06f-865658904a5f
-# ╟─a2768180-4bfe-40ba-a743-00528d36c6c6
+# ╠═a2768180-4bfe-40ba-a743-00528d36c6c6
 # ╠═5f22070f-c26a-49e5-aadf-e112c74d2766
 # ╠═c6e9efb4-ac12-4b8d-8ed7-550c8d139c55
-# ╠═7dfbaaa5-d215-4bc8-b885-ed9ee01834c9
 # ╠═df9a3d7c-d414-434b-862b-8727d915f95d
 # ╠═d932cc30-26fc-4f49-b64d-a4209d5e9cd0
-# ╠═b886e54f-293e-4628-b17c-151e67ef609a
+# ╠═0e86d796-7f8a-4b9d-a0ca-3917f60d7d96
+# ╠═0205bfb1-fcab-413e-a77a-45f06b6b6e4a
+# ╟─df1618d0-5507-4050-bf96-980694922c26
 # ╠═8a5630d8-b98a-49a8-84a5-763f8c104a0f
-# ╠═fcbf574c-9631-4b61-91b6-31b573d381a5
-# ╠═09af520d-83ed-4538-aee5-16b0263b6b7b
+# ╠═2b785ab7-02d7-410b-aec2-46f38e38b24b
+# ╠═28884c26-bbff-412b-9c46-e147d04a53de
+# ╠═92c6c19c-3192-4483-b742-04349defb3f3
+# ╠═dd27b8b0-4927-4134-89cd-3e4877bc5416
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
