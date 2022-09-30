@@ -78,7 +78,7 @@ Max: $(@bind β_max Scrubbable(0.1:0.1:5, default=2))
 ## ρ
 
 Min: $(@bind ρ_min Scrubbable(0.1:0.1:5, default=0.1))
-Step: $(@bind ρ_step Scrubbable(0:0.01:5, default=0.1))
+Step (/10): $(@bind ρ_step Scrubbable(0:0.1:10, default=0.05))
 Max: $(@bind ρ_max Scrubbable(0.1:0.1:5, default=0.9))
 
 """
@@ -129,7 +129,7 @@ function test_with_params((α, β, ρ))
 		60, # number_of_ants
 		ρ,
 		0.005, # ϵ
-		150, # max_number_of_iterations
+		300, # max_number_of_iterations
 		300 # starting_pheromone_ammount
 	)
 	vars3 = ACOKSettings(
@@ -180,10 +180,13 @@ function save_result_and_stats(filename, rows, variations)
 end
 
 # ╔═╡ 92c6c19c-3192-4483-b742-04349defb3f3
-save_result_and_stats("../graphs/heavy_is_good.csv", is_good, variations)
+begin
 
-# ╔═╡ dd27b8b0-4927-4134-89cd-3e4877bc5416
-save_result_and_stats("../graphs/heavy_prec.csv", precision, variations)
+	if run
+		save_result_and_stats("../graphs/heavy_is_good.csv", is_good, variations)
+		save_result_and_stats("../graphs/heavy_prec.csv", precision, variations)
+	end
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -902,6 +905,5 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═2b785ab7-02d7-410b-aec2-46f38e38b24b
 # ╠═28884c26-bbff-412b-9c46-e147d04a53de
 # ╠═92c6c19c-3192-4483-b742-04349defb3f3
-# ╠═dd27b8b0-4927-4134-89cd-3e4877bc5416
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
