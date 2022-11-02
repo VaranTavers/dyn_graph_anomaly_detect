@@ -144,6 +144,9 @@ function test_with_params((α, β, ρ))
 	(fst.(goods), snd.(goods))
 end
 
+# ╔═╡ 7ec490a7-6f0d-4d40-b703-b54c80f85434
+calculate_denseness(g, [79, 80, 71, 77, 69, 68,64, 61, 45, 44, 27])
+
 # ╔═╡ df1618d0-5507-4050-bf96-980694922c26
 md"""
 Run:
@@ -894,6 +897,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═d932cc30-26fc-4f49-b64d-a4209d5e9cd0
 # ╠═0e86d796-7f8a-4b9d-a0ca-3917f60d7d96
 # ╠═0205bfb1-fcab-413e-a77a-45f06b6b6e4a
+# ╠═7ec490a7-6f0d-4d40-b703-b54c80f85434
 # ╟─df1618d0-5507-4050-bf96-980694922c26
 # ╠═8a5630d8-b98a-49a8-84a5-763f8c104a0f
 # ╠═2b785ab7-02d7-410b-aec2-46f38e38b24b
