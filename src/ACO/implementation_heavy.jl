@@ -190,45 +190,18 @@ end
 
 # ╔═╡ e8f705bb-be85-48aa-a25e-0f9e2921f6a3
 begin
-	g = loadgraph("../../graphs/heavy/changhonghao3.lgz", SWGFormat())
-	
-	vars = ACOSettings(
-			1, # α
-			2, # β
-			10, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			50, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c = HeaviestACO(g, vars)
-	calculate_heaviness(g, c)
 	
 end
 
 # ╔═╡ 5fc10530-aad7-4d90-b3b6-0f0c3b4f3c30
 begin
-	g3 = loadgraph("../../graphs/dynamic_graphs/syntetic/school_test/school_test1.lgz", SWGFormat())
 	
-	@time c3 = HeaviestACO(g3, vars)
 	
 end
 
 # ╔═╡ da9a9560-1b80-485f-be9a-953fa578923a
 begin
-	g4 = loadgraph("../../graphs/dynamic_graphs/real/ants1w/ants1w_1.lgz", SWGFormat())
 	
-	vars4 = ACOSettings(
-			1, # α
-			2, # β
-			1, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			1, # max_number_of_iterations
-			3 # starting_pheromone_ammount
-		)
-	c4 = HeaviestACO(g4, vars4)
-	calculate_heaviness(g4, c4)
 	
 end
 
