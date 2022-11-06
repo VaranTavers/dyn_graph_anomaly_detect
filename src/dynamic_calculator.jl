@@ -46,7 +46,7 @@ end
 
 # ╔═╡ 102b3c2a-9506-4a59-8c8d-e38692e22742
 begin
-	implementation_jl = ingredients("./cli/implementation_community.jl")
+	implementation_jl = ingredients("./ACO/implementation_community.jl")
 	import .implementation_jl: CommunityACO, calculate_modularity, ACOSettings, normalized_mutual_information, CommunityACO_get_pheromone
 	
 	implementation_heavy_jl = ingredients("./ACO/implementation_heavy.jl")
