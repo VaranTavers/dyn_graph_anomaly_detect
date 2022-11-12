@@ -2,7 +2,6 @@
 begin
 	using Graphs
 	using Distributed
-	using CSV
 	using DataFrames
 	using SimpleWeightedGraphs
 	using Folds
@@ -217,4 +216,18 @@ function ACO_get_pheromone(graph, vars::ACOSettings, η; k=0)
 	n, _ = size(η)
 	τ = ones(n, n) .* vars.starting_pheromone_ammount
 	ACO(graph, vars, η, τ; k=k)
+end
+
+function copy_replace_funcs(vars_base::ACOSettings, eval_f, c_s)
+	ACOSettings(
+		vars_base.α,
+		vars_base.β,
+		vars_base.number_of_ants,
+		vars_base.ρ,
+		vars_base.ϵ,
+		vars_base.max_number_of_iterations,
+		vars_base.starting_pheromone_ammount,
+		eval_f,
+		c_s
+	)
 end

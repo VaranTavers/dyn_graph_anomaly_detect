@@ -9,7 +9,7 @@ begin
 	using Statistics
 end
 
-include("../ACO/implementation_community.jl")
+include("implementation_community.jl")
 
 @show Threads.nthreads()
 
@@ -36,11 +36,8 @@ begin
 
 end
 
-result = CommunityACO(graph, vars)
-
 @time begin
     for i in 1:number_of_tests
         result = CommunityACO(graph, vars)
-		@show  result
     end
 end
