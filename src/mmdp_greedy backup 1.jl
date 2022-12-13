@@ -30,11 +30,6 @@ function ingredients(path::String)
 	m
 end
 
-# ╔═╡ 9b0e8762-7358-4bac-97b8-48b216815dac
-begin
-	implementation_jl = ingredients("./ACO/implementation_acok_dyn.jl")
-	import .implementation_jl: ACOK, ACOKSettings, ACOK_get_pheromone, copy_replace_funcs, ACOKInner
-end
 
 # ╔═╡ 61a473d9-175e-43c7-85e5-9f558d40cef8
 g = loadgraph("01Type1_52.1_n500m200.lgz", SWGFormat())
@@ -62,7 +57,15 @@ end
 
 # ╔═╡ eeaaf733-bd81-48a2-b72b-3ab6310125b7
 function calculate_maxmindist(g, vertices)
-	calculate_maxmindist(g, vertices, weights(g))
+	n = nv(g)
+	min_distances = zeros(n, n)
+
+	for i in vertices
+		min_distances[i, :] .= dijkstra_shortest_paths(g, i).dists
+		min_distances[:, i] .= dijkstra_shortest_paths(g, i).dists
+	end
+
+	calculate_maxmindist(g, vertices, min_distances)
 end
 
 # ╔═╡ 72e5abeb-990a-4928-a294-f0bdba97bda5
@@ -78,40 +81,13 @@ end
 # ╔═╡ 6ab31180-fd23-4081-98ce-8edab075de98
 function MaxMinDistACO(graph, vars_base::ACOKSettings)
 	n = nv(graph)
-	η = weights(graph)
+	η = min_dists
 
 	vars = copy_replace_funcs(vars_base, calculate_mmd, compute_solution)
 
 	ACOK(graph, vars, η)
 end
 
-# ╔═╡ 86014099-5207-4f8e-bbc2-cb15e41bca4b
-vars = ACOKSettings(
-			1, # α
-			2, # β
-			120, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			200, # max_number_of_iterations
-			3, # starting_pheromone_ammount
-			200, # k
-			false
-		)
-
-# ╔═╡ 446c84da-aadc-4ce1-92ad-d35c0e0148f6
-res = MaxMinDistACO(g, vars)
-
-# ╔═╡ f55f78aa-24ac-4141-914e-f529ada62b19
-length(res)
-
-# ╔═╡ 976afb92-20f6-436e-a881-f222e743f21d
-calculate_mmd(g, res)
-
-# ╔═╡ 46dd2a45-0cd3-4d31-97ea-58879b359a97
-#gplot(g; nodelabel=collect(1:nv(g)), edgelabel=map(x -> x.weight, edges(g)))
-
-# ╔═╡ 2db351da-3e65-446a-8242-f2b689ce1a88
-1:500 .∈ Ref([1,2])
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -138,7 +114,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "b89ef61eca119587f617a18fd482605b9cbde2c6"
+project_hash = "79acfff59504805f763fdcdb828833232a70714d"
 
 [[deps.Accessors]]
 deps = ["Compat", "CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "LinearAlgebra", "MacroTools", "Requires", "Test"]
@@ -635,6 +611,5 @@ version = "5.1.1+0"
 # ╠═f55f78aa-24ac-4141-914e-f529ada62b19
 # ╠═976afb92-20f6-436e-a881-f222e743f21d
 # ╠═46dd2a45-0cd3-4d31-97ea-58879b359a97
-# ╠═2db351da-3e65-446a-8242-f2b689ce1a88
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

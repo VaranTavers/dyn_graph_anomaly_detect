@@ -13,105 +13,102 @@ begin
 	using CSV
 	using DataFrames
 	using GraphPlot
-end
-
-# ╔═╡ f0c3e535-1791-4166-9055-39709002aa43
-function ingredients(path::String)
-	# this is from the Julia source code (evalfile in base/loading.jl)
-	# but with the modification that it returns the module instead of the last object
-	name = Symbol(basename(path))
-	m = Module(name)
-	Core.eval(m,
-        Expr(:toplevel,
-             :(eval(x) = $(Expr(:core, :eval))($name, x)),
-             :(include(x) = $(Expr(:top, :include))($name, x)),
-             :(include(mapexpr::Function, x) = $(Expr(:top, :include))(mapexpr, $name, x)),
-             :(include($path))))
-	m
-end
-
-# ╔═╡ 9b0e8762-7358-4bac-97b8-48b216815dac
-begin
-	implementation_jl = ingredients("./ACO/implementation_acok_dyn.jl")
-	import .implementation_jl: ACOK, ACOKSettings, ACOK_get_pheromone, copy_replace_funcs, ACOKInner
+	using Statistics
+	using Random
 end
 
 # ╔═╡ 61a473d9-175e-43c7-85e5-9f558d40cef8
 g = loadgraph("01Type1_52.1_n500m200.lgz", SWGFormat())
 
-# ╔═╡ cee829be-3b89-4538-b040-77efe6cdcfff
-function calculate_all_min_distances(g)
-	n = nv(g)
-	weights = Folds.map(x -> x.weight, edges(g))
-	
-	mat_vecs = Folds.map(i -> dijkstra_shortest_paths(g, i).dists, 1:n)
-
-	mapreduce(permutedims, vcat, mat_vecs)
-end
-
 # ╔═╡ 1f1fdf59-5ba0-44d9-afad-65e0abce6e52
-min_dists = calculate_all_min_distances(g)
+min_dists = g.weights #calculate_all_min_distances(g)
 
 # ╔═╡ 01c7dcaa-cefb-42b1-aa8a-4b3e98995aee
-function calculate_maxmindist(g, vertices, min_distances)
+function calculate_mindist(g, vertices, min_distances)
 	
 	dist_sums = map(i -> map(j -> min_distances[i, j], vertices), vertices)
 
 	minimum(map(sum,dist_sums))
 end
 
-# ╔═╡ eeaaf733-bd81-48a2-b72b-3ab6310125b7
-function calculate_maxmindist(g, vertices)
-	calculate_maxmindist(g, vertices, weights(g))
+# ╔═╡ 85d312a8-7e9e-4b03-922c-a7f9f6489a80
+function maxmindp_greedy_dist(g, k)
+	min_dists = g.weights
+	
+	furthest = argmax(mean(min_dists, dims=2)[:])
+	points = zeros(Int64, k)
+	points[1] = furthest
+
+	dists = min_dists[points[1], :]
+	for i in 2:k
+		furthest = argmax(dists)
+		points[i] = furthest
+		dists = map(minimum, zip(dists, min_dists[points[i], :]))
+	end
+
+	points
 end
 
-# ╔═╡ 72e5abeb-990a-4928-a294-f0bdba97bda5
-function calculate_mmd(graph, c)
-	calculate_maxmindist(graph, c)
+# ╔═╡ 465d25c0-1b13-41f6-9a7a-8ee419092d83
+function vector_with(v, x)
+	vv = copy(v)
+	push!(vv, x)
+
+	vv
 end
 
-# ╔═╡ 37b27206-093f-4349-b638-3ebadb7f6645
-function compute_solution(n, edges)
-	edges
+# ╔═╡ dc4a38c8-a636-40f2-aa9b-431a5d905e16
+function maxmindp_greedy_mindp(g, k)
+	min_dists = g.weights
+	
+	furthest = argmax(mean(min_dists, dims=2)[:])
+	points = zeros(Int64, k)
+	points[1] = furthest
+
+	dists = min_dists[points[1], :]
+	for i in 2:k
+		mindps = map(x -> calculate_mindist(g, vector_with(points[1:(i-1)], x), min_dists), 1:nv(g))
+		furthest = argmax(mindps)
+		points[i] = furthest
+		dists = map(minimum, zip(dists, min_dists[points[i], :]))
+	end
+
+	points
 end
 
-# ╔═╡ 6ab31180-fd23-4081-98ce-8edab075de98
-function MaxMinDistACO(graph, vars_base::ACOKSettings)
-	n = nv(graph)
-	η = weights(graph)
-
-	vars = copy_replace_funcs(vars_base, calculate_mmd, compute_solution)
-
-	ACOK(graph, vars, η)
+# ╔═╡ 40a4d5db-edb2-4667-af36-80edba8e9ad4
+function maxmindp_random(g, k)
+	randperm(nv(g))[1:k]
 end
 
-# ╔═╡ 86014099-5207-4f8e-bbc2-cb15e41bca4b
-vars = ACOKSettings(
-			1, # α
-			2, # β
-			120, # number_of_ants
-			0.8, # ρ
-			0.005, # ϵ
-			200, # max_number_of_iterations
-			3, # starting_pheromone_ammount
-			200, # k
-			false
-		)
+# ╔═╡ e895e79f-2c99-4acf-8701-688326404c65
+begin
+	greedy1 = maxmindp_greedy_dist(g, 200)
+	calculate_mindist(g, greedy1, g.weights)
+end
 
-# ╔═╡ 446c84da-aadc-4ce1-92ad-d35c0e0148f6
-res = MaxMinDistACO(g, vars)
+# ╔═╡ f026cad9-6708-440c-a2f7-30418b2de881
+begin
+	random = maxmindp_random(g, 200)
+	calculate_mindist(g, random, g.weights)
+end
 
-# ╔═╡ f55f78aa-24ac-4141-914e-f529ada62b19
-length(res)
+# ╔═╡ 82116829-f886-4fa8-9aeb-15044b769759
+begin
+	greedy2 = maxmindp_greedy_mindp(g, 200)
+	calculate_mindist(g, greedy2, g.weights)
+end
 
-# ╔═╡ 976afb92-20f6-436e-a881-f222e743f21d
-calculate_mmd(g, res)
+# ╔═╡ c8687b1f-97d9-4d20-a9f0-552303470c16
+begin
+# SBTS
+	sbts = [79, 410, 130, 353, 365, 129, 258, 208, 142, 412, 155, 426, 355, 164, 238, 89, 91, 213, 136, 405, 282, 60, 406, 226, 239, 162, 368, 78, 168, 483, 399, 446, 83, 82, 263, 273, 25, 292, 55, 304, 8, 314, 413, 158, 402, 302, 27, 350, 458, 246, 359, 5, 440, 113, 161, 241, 50, 231, 333, 43, 478, 320, 432, 463, 29, 378, 167, 489, 386, 84, 442, 132, 448, 65, 421, 189, 394, 170, 423, 159, 109, 235, 266, 14, 71, 351, 411, 249, 490, 334, 221, 339, 427, 38, 366, 481, 105, 393, 375, 269, 110, 100, 315, 298, 254, 41, 275, 485, 389, 408, 488, 139, 329, 36, 206, 476, 417, 116, 299, 15, 347, 242, 234, 265, 112, 237, 420, 492, 34, 223, 52, 422, 464, 434, 264, 272, 119, 344, 361, 475, 280, 285, 220, 291, 318, 47, 425, 349, 156, 107, 296, 212, 177, 374, 196, 23, 465, 279, 479, 487, 433, 337, 480, 419, 96, 439, 362, 154, 397, 460, 98, 37, 268, 232, 332, 468, 151, 200, 222, 32, 363, 452, 211, 135, 407, 451, 437, 380, 1, 54, 336, 22, 301, 205, 342, 335, 102, 323, 354, 376]
+	sbts .+= 1
+	calculate_mindist(g, sbts, g.weights)
+end
 
-# ╔═╡ 46dd2a45-0cd3-4d31-97ea-58879b359a97
-#gplot(g; nodelabel=collect(1:nv(g)), edgelabel=map(x -> x.weight, edges(g)))
-
-# ╔═╡ 2db351da-3e65-446a-8242-f2b689ce1a88
-1:500 .∈ Ref([1,2])
+# ╔═╡ 8ba7cd16-b025-4e6d-935c-2799388c443d
+greedy2
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -121,7 +118,9 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
 GraphPlot = "a2cc645c-3eea-5389-862e-a155d0052231"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SimpleWeightedGraphs = "47aef6b3-ad0c-573a-a1e2-d07658019622"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 CSV = "~0.10.8"
@@ -138,7 +137,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "b89ef61eca119587f617a18fd482605b9cbde2c6"
+project_hash = "af4b2c5b5acb990ada077d76b28d50c06eddb6d0"
 
 [[deps.Accessors]]
 deps = ["Compat", "CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "LinearAlgebra", "MacroTools", "Requires", "Test"]
@@ -620,21 +619,17 @@ version = "5.1.1+0"
 
 # ╔═╡ Cell order:
 # ╠═a1028eb0-5dd5-11ed-3893-69ea980733df
-# ╠═f0c3e535-1791-4166-9055-39709002aa43
-# ╠═9b0e8762-7358-4bac-97b8-48b216815dac
 # ╠═61a473d9-175e-43c7-85e5-9f558d40cef8
-# ╠═cee829be-3b89-4538-b040-77efe6cdcfff
 # ╠═1f1fdf59-5ba0-44d9-afad-65e0abce6e52
 # ╠═01c7dcaa-cefb-42b1-aa8a-4b3e98995aee
-# ╠═eeaaf733-bd81-48a2-b72b-3ab6310125b7
-# ╠═72e5abeb-990a-4928-a294-f0bdba97bda5
-# ╠═37b27206-093f-4349-b638-3ebadb7f6645
-# ╠═6ab31180-fd23-4081-98ce-8edab075de98
-# ╠═86014099-5207-4f8e-bbc2-cb15e41bca4b
-# ╠═446c84da-aadc-4ce1-92ad-d35c0e0148f6
-# ╠═f55f78aa-24ac-4141-914e-f529ada62b19
-# ╠═976afb92-20f6-436e-a881-f222e743f21d
-# ╠═46dd2a45-0cd3-4d31-97ea-58879b359a97
-# ╠═2db351da-3e65-446a-8242-f2b689ce1a88
+# ╠═85d312a8-7e9e-4b03-922c-a7f9f6489a80
+# ╠═465d25c0-1b13-41f6-9a7a-8ee419092d83
+# ╠═dc4a38c8-a636-40f2-aa9b-431a5d905e16
+# ╠═40a4d5db-edb2-4667-af36-80edba8e9ad4
+# ╠═e895e79f-2c99-4acf-8701-688326404c65
+# ╠═f026cad9-6708-440c-a2f7-30418b2de881
+# ╠═82116829-f886-4fa8-9aeb-15044b769759
+# ╠═c8687b1f-97d9-4d20-a9f0-552303470c16
+# ╠═8ba7cd16-b025-4e6d-935c-2799388c443d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
