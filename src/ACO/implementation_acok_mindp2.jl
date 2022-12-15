@@ -3,6 +3,7 @@ begin
 	using Distributed
 	using SimpleWeightedGraphs
 	using Folds
+	using Statistics
 end
 
 mutable struct ACOKInner
@@ -43,9 +44,8 @@ end
 # Calculates the probabilities of choosing edges to add to the solution.
 function calculate_probabilities(inner::ACOKInner, row, i, vars::ACOKSettings)
 	graph, n, η, τ = spread(inner)
-
 	# graph.weights[i,j] * 
-	p = [ (τ[i, j]^vars.α * row[j]^vars.β) for j in 1:n]
+	p = [ (τ[j]^vars.α * row[j]^vars.β) for j in 1:n]
 	
 	if maximum(p) == 0
 		p[i] = 1
@@ -53,26 +53,23 @@ function calculate_probabilities(inner::ACOKInner, row, i, vars::ACOKSettings)
 	s_p = sum(p)
 
 	p ./= s_p
-
 	p
 end
 
 function generate_s(inner::ACOKInner, vars::ACOKSettings, i)
 	points = zeros(Int64, vars.k)
 	points[1] = rand(1:inner.n)
-	row = inner.η[points[1], :]
+	row = copy(inner.η)
 	for i in 2:vars.k
 		points[i] = sample(calculate_probabilities(inner, row, points[i - 1], vars))
 		row[points[i]] = 0
-		row = map(minimum, zip(row, inner.η[points[i], :]))
-		for j in 1:(i-1)
-			if points[i] == points[j]
-				if vars.force_every_solution
-					return generate_s(inner, vars)
-				end
-				return
+		if points[i] == points[i - 1]
+			if vars.force_every_solution
+				return generate_s(inner, vars)
 			end
+			return
 		end
+
 	end
 
 	points
@@ -92,7 +89,7 @@ end
 
 function ACOK(graph, vars::ACOKSettings, η, τ)
 	#Set parameters and initialize pheromone traits.
-	n, _ = size(η)
+	n = length(η)
 	inner = ACOKInner(graph, n, η, τ)
 	
 	@assert nv(graph) >= vars.k
@@ -125,10 +122,8 @@ function ACOK(graph, vars::ACOKSettings, η, τ)
 			# Update pheromone trails
 			# TODO: test with matrix sum
 			τ .*= (1 - vars.ρ)
-			for (a, b) in zip(sib, sib[2:end])
-				τ[a, b] += sib_val
-				τ[b, a] += sib_val
-	
+			for a in sib
+				τ[a] += sib_val
 			end
 		end
 		τ = min.(τ, τ_max)
@@ -141,7 +136,8 @@ end
 
 function ACOK(graph, vars::ACOKSettings, η)
 	n, _ = size(η)
-	τ = ones(n, n) .* vars.starting_pheromone_ammount
+	τ = ones(n) .* vars.starting_pheromone_ammount
+	η = mean(η, dims=1)
 	r, _ = ACOK(graph, vars, η, τ)
 
 	r
@@ -150,7 +146,8 @@ end
 
 function ACOK_get_pheromone(graph, vars::ACOKSettings, η)
 	n, _ = size(η)
-	τ = ones(n, n) .* vars.starting_pheromone_ammount
+	τ = ones(n) .* vars.starting_pheromone_ammount
+	η = mean(η, dims=1)
 	ACOK(graph, vars, η, τ)
 end
 

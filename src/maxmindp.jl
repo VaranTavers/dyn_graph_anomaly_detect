@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.16
+# v0.19.14
 
 using Markdown
 using InteractiveUtils
@@ -32,7 +32,7 @@ end
 
 # ╔═╡ 9b0e8762-7358-4bac-97b8-48b216815dac
 begin
-	implementation_jl = ingredients("./ACO/implementation_acok_dyn.jl")
+	implementation_jl = ingredients("./ACO/implementation_acok_mindp2.jl")
 	import .implementation_jl: ACOK, ACOKSettings, ACOK_get_pheromone, copy_replace_funcs, ACOKInner
 end
 
@@ -110,8 +110,8 @@ calculate_mmd(g, res)
 # ╔═╡ 46dd2a45-0cd3-4d31-97ea-58879b359a97
 #gplot(g; nodelabel=collect(1:nv(g)), edgelabel=map(x -> x.weight, edges(g)))
 
-# ╔═╡ 2db351da-3e65-446a-8242-f2b689ce1a88
-1:500 .∈ Ref([1,2])
+# ╔═╡ 2b22919a-640b-4ce5-a6ce-1bfd5ea12f09
+sum([1 2; 3 4], dims=1)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -136,7 +136,7 @@ SimpleWeightedGraphs = "~1.2.1"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.3"
+julia_version = "1.8.2"
 manifest_format = "2.0"
 project_hash = "b89ef61eca119587f617a18fd482605b9cbde2c6"
 
@@ -200,9 +200,9 @@ version = "0.11.4"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
-git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
+git-tree-sha1 = "73e9c4144410f6b11f2f818488728d3afd60943c"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.12.8"
+version = "0.12.9"
 
 [[deps.Compat]]
 deps = ["Dates", "LinearAlgebra", "UUIDs"]
@@ -635,6 +635,6 @@ version = "5.1.1+0"
 # ╠═f55f78aa-24ac-4141-914e-f529ada62b19
 # ╠═976afb92-20f6-436e-a881-f222e743f21d
 # ╠═46dd2a45-0cd3-4d31-97ea-58879b359a97
-# ╠═2db351da-3e65-446a-8242-f2b689ce1a88
+# ╠═2b22919a-640b-4ce5-a6ce-1bfd5ea12f09
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
